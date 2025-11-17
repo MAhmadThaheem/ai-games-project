@@ -100,29 +100,32 @@ const Chess = () => {
   };
 
   const updateGameMessage = (gameStatus) => {
-    switch (gameStatus) {
-      case 'white_won':
-        setMessage('🎉 Checkmate! You won! Congratulations!');
-        break;
-      case 'black_won':
-        setMessage('🤖 Checkmate! AI wins! Better luck next time!');
-        break;
-      case 'stalemate':
-        setMessage('🤝 Stalemate! The game is a draw.');
-        break;
-      case 'check':
-        setMessage('⚡ You are in check! Protect your king!');
-        break;
-      case 'in_progress':
-        setMessage('AI is thinking...');
-        setTimeout(() => {
-          setMessage('Your turn! Make your move.');
-        }, 1000);
-        break;
-      default:
-        setMessage('Game in progress');
-    }
-  };
+  switch (gameStatus) {
+    case 'white_won':
+      setMessage('🎉 Checkmate! You won! Congratulations!');
+      break;
+    case 'black_won':
+      setMessage('🤖 Checkmate! AI wins! Better luck next time!');
+      break;
+    case 'stalemate':
+      setMessage('🤝 Stalemate! The game is a draw.');
+      break;
+    case 'check':
+      setMessage('⚡ You are in check! Protect your king!');
+      break;
+    case 'checkmate':
+      setMessage('♔ Checkmate! Game over.');
+      break;
+    case 'in_progress':
+      setMessage('AI is thinking...');
+      setTimeout(() => {
+        setMessage('Your turn! Make your move.');
+      }, 1000);
+      break;
+    default:
+      setMessage('Game in progress');
+  }
+};
 
   // Initialize game on component mount
   useEffect(() => {
@@ -146,7 +149,7 @@ const Chess = () => {
 
   const getPieceColor = (piece) => {
     if (!piece) return '';
-    return piece === piece.toUpperCase() ? 'text-white' : 'text-black';
+    return piece === piece.toUpperCase() ? 'text-white drop-shadow-lg' : 'text-black drop-shadow-lg';
   };
 
   const isLegalMove = (row, col) => {
@@ -162,7 +165,7 @@ const Chess = () => {
 
   const getSquareColor = (row, col) => {
     const isLight = (row + col) % 2 === 0;
-    return isLight ? 'bg-amber-100' : 'bg-amber-800';
+    return isLight ? 'bg-amber-200' : 'bg-amber-800';
   };
 
   const getDifficultyIcon = (level) => {
@@ -264,40 +267,41 @@ const Chess = () => {
                       
                       return (
                         <button
-                          key={`${rowIndex}-${colIndex}`}
-                          onClick={() => handleSquareClick(rowIndex, colIndex)}
-                          disabled={loading || currentPlayer !== 'white' || status !== 'in_progress'}
-                          className={`
-                            w-12 h-12 md:w-16 md:h-16 relative
-                            ${squareColor}
-                            ${isSelected ? 'ring-4 ring-blue-400 ring-opacity-80' : ''}
-                            ${isLegal ? 'ring-4 ring-green-400 ring-opacity-60' : ''}
-                            transition-all duration-200
-                            hover:brightness-110
-                            flex items-center justify-center
-                            ${(!piece && status === 'in_progress' && currentPlayer === 'white') 
-                              ? 'cursor-pointer' 
-                              : 'cursor-default'}
-                          `}
-                        >
-                          {piece && (
-                            <span className={`text-3xl md:text-4xl font-bold ${getPieceColor(piece)}`}>
-                              {getPieceSymbol(piece)}
-                            </span>
-                          )}
-                          
-                          {/* Legal move indicator */}
-                          {isLegal && !piece && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="w-4 h-4 bg-green-400 rounded-full opacity-60"></div>
-                            </div>
-                          )}
-                          
-                          {/* Legal capture indicator */}
-                          {isLegal && piece && (
-                            <div className="absolute inset-0 ring-4 ring-red-400 ring-opacity-60 rounded"></div>
-                          )}
-                        </button>
+  key={`${rowIndex}-${colIndex}`}
+  onClick={() => handleSquareClick(rowIndex, colIndex)}
+  disabled={loading || currentPlayer !== 'white' || status !== 'in_progress'}
+  className={`
+    w-12 h-12 md:w-16 md:h-16 relative
+    ${squareColor}
+    ${isSelected ? 'ring-4 ring-blue-500 ring-opacity-90' : ''}
+    ${isLegal ? 'ring-4 ring-green-500 ring-opacity-80' : ''}
+    transition-all duration-200
+    hover:brightness-110
+    flex items-center justify-center
+    border border-amber-600/30
+    ${(!piece && status === 'in_progress' && currentPlayer === 'white') 
+      ? 'cursor-pointer' 
+      : 'cursor-default'}
+  `}
+>
+  {piece && (
+    <span className={`text-3xl md:text-4xl font-bold ${getPieceColor(piece)}`}>
+      {getPieceSymbol(piece)}
+    </span>
+  )}
+  
+  {/* Legal move indicator */}
+  {isLegal && !piece && (
+    <div className="absolute inset-0 flex items-center justify-center">
+      <div className="w-3 h-3 bg-green-500 rounded-full opacity-80"></div>
+    </div>
+  )}
+  
+  {/* Legal capture indicator */}
+  {isLegal && piece && (
+    <div className="absolute inset-0 ring-4 ring-red-500 ring-opacity-70 rounded"></div>
+  )}
+</button>
                       );
                     })}
                   </div>

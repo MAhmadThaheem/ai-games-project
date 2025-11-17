@@ -187,3 +187,37 @@ class ChessGameLogic:
                 if self.board[i][j] == king_piece:
                     return (i, j)
         return None
+    def is_checkmate(self, player: str) -> bool:
+        """Check if player is in checkmate"""
+        if not self.is_check(player):
+            return False
+    
+        # If in check and no legal moves, it's checkmate
+        legal_moves = self.get_legal_moves(player)
+        return len(legal_moves) == 0
+
+def is_stalemate(self, player: str) -> bool:
+    """Check if player is in stalemate"""
+    if self.is_check(player):
+        return False
+    
+    # If not in check but no legal moves, it's stalemate
+    legal_moves = self.get_legal_moves(player)
+    return len(legal_moves) == 0
+
+def get_legal_moves(self, player: str) -> List[Dict[str, Any]]:
+    """Get all legal moves for a player (considering check)"""
+    all_moves = []
+    for i in range(8):
+        for j in range(8):
+            piece = self.board[i][j]
+            if piece and ((player == 'white' and piece.isupper()) or (player == 'black' and piece.islower())):
+                piece_moves = self.get_piece_moves(i, j, piece)
+                # Filter moves that would leave king in check
+                for move in piece_moves:
+                    test_board = [row[:] for row in self.board]  # Copy board
+                    test_logic = ChessGameLogic(test_board)
+                    test_logic.make_move(move['from'], move['to'])
+                    if not test_logic.is_check(player):
+                        all_moves.append(move)
+    return all_moves

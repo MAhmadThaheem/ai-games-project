@@ -72,22 +72,17 @@ async def make_move(game_id: str, move: ChessMove):
     
     # Check for checkmate
     opponent_logic = ChessGameLogic(game.board)
-    opponent_moves = opponent_logic.get_legal_moves(opponent.value)
-    
-    if not opponent_moves:
-        if opponent_logic.is_check(opponent.value):
-            game.status = GameStatus.CHECKMATE
-            game.status = GameStatus.WHITE_WON if move.player == ChessPlayer.WHITE else GameStatus.BLACK_WON
-        else:
-            game.status = GameStatus.STALEMATE
+    opponent_logic = ChessGameLogic(game.board)
+    if opponent_logic.is_checkmate(opponent.value):
+        game.status = GameStatus.CHECKMATE
+        game.status = GameStatus.WHITE_WON if move.player == ChessPlayer.WHITE else GameStatus.BLACK_WON
+    elif opponent_logic.is_stalemate(opponent.value):
+        game.status = GameStatus.STALEMATE
     elif opponent_logic.is_check(opponent.value):
         game.status = GameStatus.CHECK
     else:
         game.status = GameStatus.IN_PROGRESS
-    
-    # Switch player
-    game.current_player = opponent
-    
+        
     # Update game in database
     await collection.update_one(
         {"_id": ObjectId(game_id)},

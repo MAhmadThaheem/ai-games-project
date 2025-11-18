@@ -35,6 +35,19 @@ export const gameAPI = {
   
   getChessGameState: (gameId) => 
     api.get(`/api/chess/${gameId}`),
+
+  // Connect 4
+  createConnect4Game: (difficulty = 'medium') => 
+    api.post('/api/connect4/new-game', null, { params: { difficulty } }),
+  
+  makeConnect4Move: (gameId, move) => 
+    api.post(`/api/connect4/${gameId}/move`, move),
+  
+  getConnect4GameState: (gameId) => 
+    api.get(`/api/connect4/${gameId}`),
+  
+  getConnect4LegalMoves: (gameId) => 
+    api.get(`/api/connect4/${gameId}/legal-moves`),
   // Maze Solver (to be implemented)
   solveMaze: (mazeData) => api.post('/api/maze/solve', mazeData),
 };

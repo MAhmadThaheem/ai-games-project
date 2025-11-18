@@ -6,6 +6,7 @@ import FeaturedGames from './components/FeaturedGames';
 import TicTacToe from './components/games/TicTacToe';
 import Chess from './components/games/Chess';
 import './index.css';
+import Connect4 from './components/games/Connect4';
 
 function HomePage() {
   return (
@@ -34,6 +35,7 @@ function App() {
         <Route path="/tictactoe" element={<TicTacToe />} />
         {/* We'll add more routes later */}
         <Route path="/chess" element={<Chess />} />
+        <Route path="/connect4" element={<Connect4 />} />
       </Routes>
     </Router>
   );

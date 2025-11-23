@@ -1,3 +1,6 @@
+
+from app.routes.checkers import router as checkers_router
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -19,6 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 # Include routers
+app.include_router(checkers_router, prefix="/api/checkers", tags=["checkers"])
 app.include_router(tictactoe.router)
 app.include_router(chess.router)
 app.include_router(connect4.router)

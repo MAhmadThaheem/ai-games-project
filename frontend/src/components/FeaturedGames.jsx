@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Play,
   Cpu,
@@ -6,31 +6,34 @@ import {
   Network,
   Sparkles,
   Target,
-  Users,
   Crown,
   Circle,
   CheckSquare,
   Volume2,
-  VolumeX
+  VolumeX,
+  ArrowLeft
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useSound } from '../hooks/useSound'; // Import custom hook
+import { useSound } from '../hooks/useSound.js';
+import { useAudio } from '../context/AudioContext.jsx';
 
 const FeaturedGames = () => {
   const navigate = useNavigate();
-  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   
-  // Use custom sound hook
-  const [playClick] = useSound('/sounds/click.mp3', { volume: 0.5 });
-  const [playHover] = useSound('/sounds/hover.mp3', { volume: 0.3 });
-  const [playSelect] = useSound('/sounds/select.mp3', { volume: 0.5 });
-  const [playGameStart] = useSound('/sounds/game-start.mp3', { volume: 0.6 });
+  // Use global audio context
+  const { isMusicEnabled, toggleMusic } = useAudio();
+
+  // Use custom sound hook for effects
+  const [playClick] = useSound('/sounds/click.mp3', { volume: 1 });
+  const [playHover] = useSound('/sounds/hover.mp3', { volume: 0.6 });
+  const [playSelect] = useSound('/sounds/select.mp3', { volume: 1 });
+  const [playGameStart] = useSound('/sounds/game-start.mp3', { volume: 1 });
 
   const featuredGames = [
     {
       id: 1,
       name: "Maze Solver",
-      description: "Watch AI algorithms find the shortest path through complex mazes with visualizations",
+      description: "Watch AI algorithms find the shortest path through complex mazes",
       icon: <Network className="text-game-green" size={32} />,
       color: "from-green-500 to-emerald-600",
       difficulty: "Easy",
@@ -51,7 +54,7 @@ const FeaturedGames = () => {
     {
       id: 3,
       name: "Sudoku Solver",
-      description: "AI that solves Sudoku puzzles instantly with backtracking visualization",
+      description: "AI that solves Sudoku puzzles instantly with backtracking",
       icon: <Brain className="text-game-orange" size={32} />,
       color: "from-orange-500 to-red-500",
       difficulty: "Hard",
@@ -61,7 +64,7 @@ const FeaturedGames = () => {
     {
       id: 4,
       name: "Chess AI",
-      description: "Play against AI with adaptive difficulty levels and move suggestions",
+      description: "Play against AI with adaptive difficulty levels",
       icon: <Crown className="text-game-purple" size={32} />,
       color: "from-purple-500 to-indigo-600",
       difficulty: "Variable",
@@ -72,7 +75,7 @@ const FeaturedGames = () => {
     {
       id: 5,
       name: "Connect 4 AI",
-      description: "Classic Connect 4 with intelligent AI opponents and sound effects",
+      description: "Classic Connect 4 with intelligent AI opponents",
       icon: <Circle className="text-game-blue" size={32} />,
       color: "from-blue-500 to-cyan-600",
       difficulty: "Variable",
@@ -93,9 +96,14 @@ const FeaturedGames = () => {
     },
   ];
 
+  const handleHover = () => {
+    if (isMusicEnabled) playHover();
+  };
+
   const handleGameClick = (game) => {
-    if (isSoundEnabled) {
-      playGameStart();
+    if (isMusicEnabled) {
+      // playSelect(); // Remove this, it clashes
+      playGameStart(); // Keep this, but with better sound
     }
     
     if (game.route) {
@@ -106,10 +114,17 @@ const FeaturedGames = () => {
   };
 
   const handleSoundToggle = () => {
-    if (isSoundEnabled) {
+    if (isMusicEnabled) {
       playClick();
     }
-    setIsSoundEnabled(!isSoundEnabled);
+    toggleMusic();
+  };
+
+  const handleBackClick = () => {
+    if (isMusicEnabled) {
+      playClick();
+    }
+    navigate('/');
   };
 
   const getStatusBadge = (status) => {
@@ -143,15 +158,42 @@ const FeaturedGames = () => {
   };
 
   return (
-    <section className="py-16 bg-gradient-to-b from-indigo-900/30 to-purple-900/30 relative overflow-hidden">
+    <section className="min-h-screen w-full py-16 bg-gradient-to-b from-indigo-900/30 to-purple-900/30 relative overflow-hidden">
       {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-500/5 rounded-full blur-3xl animate-pulse delay-500"></div>
       </div>
 
       <div className="container mx-auto px-4 relative z-10">
+        {/* Top Bar */}
+        <div className="flex justify-between items-center mb-12">
+          <button 
+            onClick={handleBackClick}
+            onMouseEnter={handleHover}
+            className="flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 hover:bg-white/20 transition-all duration-300 group text-white"
+          >
+            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+            <span>Back to Menu</span>
+          </button>
+
+          <button
+            onClick={handleSoundToggle}
+            onMouseEnter={handleHover}
+            className="flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 hover:bg-white/20 transition-all duration-300 group cursor-pointer"
+          >
+            {isMusicEnabled ? (
+              <Volume2 size={20} className="text-cyan-400 group-hover:scale-110 transition-transform" />
+            ) : (
+              <VolumeX size={20} className="text-gray-400 group-hover:scale-110 transition-transform" />
+            )}
+            <span className="text-white text-sm">
+              {isMusicEnabled ? "Sound On" : "Sound Off"}
+            </span>
+          </button>
+        </div>
+
         {/* Header Section */}
         <div className="text-center mb-16">
           <div className="inline-flex items-center space-x-4 mb-6">
@@ -166,23 +208,6 @@ const FeaturedGames = () => {
             Experience the future of gaming with our AI-powered collection. 
             Each game showcases advanced artificial intelligence algorithms with stunning visuals and immersive sound.
           </p>
-
-          {/* Sound Toggle */}
-          <div className="flex justify-center mt-6">
-            <button
-              onClick={handleSoundToggle}
-              className="flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 hover:bg-white/20 transition-all duration-300 group"
-            >
-              {isSoundEnabled ? (
-                <Volume2 size={20} className="text-cyan-400 group-hover:scale-110 transition-transform" />
-              ) : (
-                <VolumeX size={20} className="text-gray-400 group-hover:scale-110 transition-transform" />
-              )}
-              <span className="text-white text-sm">
-                {isSoundEnabled ? "Sound On" : "Sound Off"}
-              </span>
-            </button>
-          </div>
         </div>
 
         {/* Games Grid */}
@@ -190,10 +215,10 @@ const FeaturedGames = () => {
           {featuredGames.map((game) => (
             <div 
               key={game.id}
-              className="group relative"
-              onMouseEnter={() => isSoundEnabled && playHover()}
+              className="group relative cursor-pointer"
+              onMouseEnter={handleHover}
             >
-              <div className="game-card-enhanced bg-white/5 backdrop-blur-md rounded-3xl p-6 border border-white/10 hover:border-cyan-400/30 transition-all duration-500 hover:transform hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/20 relative overflow-hidden">
+              <div className="game-card-enhanced bg-white/5 backdrop-blur-md rounded-3xl p-6 border border-white/10 hover:border-cyan-400/30 transition-all duration-500 hover:transform hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/20 relative overflow-hidden h-full flex flex-col">
                 
                 {/* Background Gradient */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500 rounded-3xl`}></div>
@@ -207,7 +232,7 @@ const FeaturedGames = () => {
                 </div>
 
                 {/* Game Icon */}
-                <div className="relative mb-6">
+                <div className="relative mb-6 mt-4">
                   <div className={`w-20 h-20 rounded-2xl bg-gradient-to-r ${game.color} flex items-center justify-center mx-auto transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-2xl`}>
                     <div className="text-white transform group-hover:scale-110 transition-transform duration-500">
                       {game.icon}
@@ -217,7 +242,7 @@ const FeaturedGames = () => {
                 </div>
 
                 {/* Game Info */}
-                <div className="text-center mb-4">
+                <div className="text-center mb-4 flex-grow">
                   <h3 className="text-2xl font-bold text-white mb-3 group-hover:text-cyan-300 transition-colors duration-300">
                     {game.name}
                   </h3>
@@ -240,10 +265,8 @@ const FeaturedGames = () => {
 
                 {/* Play Button */}
                 <button
-                  onClick={() => {
-                    if (isSoundEnabled) playSelect();
-                    handleGameClick(game);
-                  }}
+                  onClick={() => handleGameClick(game)}
+                  onMouseEnter={handleHover}
                   disabled={!game.route}
                   className={`w-full py-4 rounded-xl font-bold text-lg transition-all duration-300 transform group-hover:scale-105 flex items-center justify-center space-x-3 ${
                     game.route 
@@ -275,7 +298,10 @@ const FeaturedGames = () => {
 
         {/* Footer Section */}
         <div className="text-center mt-16">
-          <div className="inline-flex items-center space-x-4 px-6 py-3 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
+          <div 
+            className="inline-flex items-center space-x-4 px-6 py-3 bg-white/5 backdrop-blur-sm rounded-full border border-white/10 hover:bg-white/10 transition-colors cursor-default"
+            onMouseEnter={handleHover}
+          >
             <Target size={20} className="text-cyan-400 animate-bounce" />
             <span className="text-white/80 text-sm">
               More AI-powered games in development...

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Cpu, Circle, Settings, Trophy, Zap, Crown } from 'lucide-react';
 import { gameAPI } from '../../utils/api';
+import { useSound } from '../../hooks/useSound.js';
+import { useAudio } from '../../context/AudioContext.jsx';
 
 const Connect4 = () => {
   const [gameId, setGameId] = useState(null);
@@ -12,8 +14,16 @@ const Connect4 = () => {
   const [message, setMessage] = useState('');
   const [winningCells, setWinningCells] = useState([]);
 
+  // Sound Hooks
+  const { isMusicEnabled } = useAudio();
+  const [playDrop] = useSound('connect4-drop', { volume: 0.6 });
+  const [playWin] = useSound('win', { volume: 0.7 });
+  const [playLose] = useSound('lose', { volume: 0.7 });
+  const [playClick] = useSound('click', { volume: 0.5 });
+
   // Initialize new game
   const startNewGame = async () => {
+    if (isMusicEnabled) playClick();
     setLoading(true);
     try {
       const response = await gameAPI.createConnect4Game(difficulty);
@@ -47,6 +57,12 @@ const Connect4 = () => {
       setCurrentPlayer(response.data.current_player);
       setStatus(response.data.status);
       
+      if (isMusicEnabled) {
+        playDrop();
+        if (response.data.status === 'red_won') playWin();
+        if (response.data.status === 'yellow_won') playLose();
+      }
+
       updateGameMessage(response.data.status);
       
     } catch (error) {

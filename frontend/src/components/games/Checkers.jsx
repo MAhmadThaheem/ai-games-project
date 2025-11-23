@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSound } from '../../hooks/useSound.js';
+import { useAudio } from '../../context/AudioContext.jsx';
 
 const Checkers = () => {
   const [board, setBoard] = useState([]);
@@ -11,40 +13,14 @@ const Checkers = () => {
   const [difficulty, setDifficulty] = useState('medium');
   const [loading, setLoading] = useState(false);
 
-  // Custom sound hook implementation
-  const useSound = (soundPath, options = {}) => {
-    const audioRef = useRef(null);
-    const { volume = 1 } = options;
-
-    const play = useCallback(() => {
-      try {
-        if (!audioRef.current) {
-          audioRef.current = new Audio(soundPath);
-          audioRef.current.volume = volume;
-        }
-        
-        audioRef.current.currentTime = 0;
-        audioRef.current.play().catch(error => {
-          console.log('Audio play failed:', error);
-        });
-      } catch (error) {
-        console.log('Sound error:', error);
-      }
-    }, [soundPath, volume]);
-
-    return [play];
-  };
-
-  // Sound effects using inline custom hook
-  const [playMove] = useSound('/sounds/move.mp3', { volume: 0.5 });
-  const [playCapture] = useSound('/sounds/capture.mp3', { volume: 0.6 });
-  const [playSelect] = useSound('/sounds/select.mp3', { volume: 0.5 });
-  const [playInvalid] = useSound('/sounds/invalid.mp3', { volume: 0.4 });
-  const [playWin] = useSound('/sounds/win.mp3', { volume: 0.7 });
-  const [playLose] = useSound('/sounds/lose.mp3', { volume: 0.7 });
-  const [playPromote] = useSound('/sounds/promote.mp3', { volume: 0.6 });
-  const [playClick] = useSound('/sounds/click.mp3', { volume: 0.4 });
-  const [playGameStart] = useSound('/sounds/game-start.mp3', { volume: 0.6 });
+  // Sound Hooks
+  const { isMusicEnabled } = useAudio();
+  const [playMove] = useSound('checkers-move', { volume: 0.5 });
+  const [playKing] = useSound('checkers-king', { volume: 0.6 });
+  const [playWin] = useSound('win', { volume: 0.7 });
+  const [playLose] = useSound('lose', { volume: 0.7 });
+  const [playClick] = useSound('click', { volume: 0.4 });
+  const [playGameStart] = useSound('game-start', { volume: 0.6 });
 
   // Initialize board
   const initializeBoard = () => {
@@ -84,7 +60,7 @@ const Checkers = () => {
     setGameOver(false);
     setWinner(null);
     setGameId(`checkers-${Date.now()}`);
-    playGameStart();
+    if (isMusicEnabled) playGameStart();
   };
 
   const getPieceColor = (piece) => {
@@ -153,7 +129,7 @@ const Checkers = () => {
   const handleSquareClick = async (row, col) => {
     if (gameOver || currentPlayer !== 'red' || loading) return;
 
-    playClick();
+    if (isMusicEnabled) playClick();
 
     const piece = board[row][col];
     const pieceColor = getPieceColor(piece);
@@ -163,7 +139,6 @@ const Checkers = () => {
       setSelectedPiece({ row, col });
       const moves = getValidMoves(row, col);
       setValidMoves(moves);
-      playSelect();
       return;
     }
 
@@ -174,7 +149,6 @@ const Checkers = () => {
       // Deselect if clicking elsewhere
       setSelectedPiece(null);
       setValidMoves([]);
-      playInvalid();
     }
   };
 
@@ -193,18 +167,18 @@ const Checkers = () => {
     const move = validMoves.find(m => m.row === toRow && m.col === toCol);
     if (move && move.capture) {
       newBoard[move.capturedRow][move.capturedCol] = null;
-      playCapture();
-    } else {
-      playMove();
-    }
+    } 
     
+    // Play sound
+    if (isMusicEnabled) playMove();
+
     // Check for promotion to king
     let wasPromoted = false;
     if ((getPieceColor(piece) === 'red' && toRow === 7) || 
         (getPieceColor(piece) === 'white' && toRow === 0)) {
       newBoard[toRow][toCol] = piece.toUpperCase(); // Make king
       wasPromoted = true;
-      playPromote();
+      if (isMusicEnabled) playKing();
     }
     
     setBoard(newBoard);
@@ -248,7 +222,7 @@ const Checkers = () => {
       setGameOver(true);
       setWinner('red');
       setLoading(false);
-      playWin();
+      if (isMusicEnabled) playWin();
       return;
     }
     
@@ -275,6 +249,8 @@ const Checkers = () => {
     newBoard[bestMove.toRow][bestMove.toCol] = piece;
     newBoard[bestMove.fromRow][bestMove.fromCol] = null;
     
+    if (isMusicEnabled) playMove();
+
     let wasAIPromoted = false;
     if (bestMove.capture) {
       // For captures, we need to determine which piece was captured
@@ -283,16 +259,13 @@ const Checkers = () => {
       const captureRow = bestMove.fromRow + rowDir;
       const captureCol = bestMove.fromCol + colDir;
       newBoard[captureRow][captureCol] = null;
-      playCapture();
-    } else {
-      playMove();
     }
     
     // Check for AI promotion
     if (getPieceColor(piece) === 'white' && bestMove.toRow === 0) {
       newBoard[bestMove.toRow][bestMove.toCol] = piece.toUpperCase();
       wasAIPromoted = true;
-      playPromote();
+      if (isMusicEnabled) playKing();
     }
     
     setBoard(newBoard);
@@ -374,7 +347,7 @@ const Checkers = () => {
     if (!redHasMoves) {
       setGameOver(true);
       setWinner('white');
-      playLose();
+      if (isMusicEnabled) playLose();
     }
   };
 

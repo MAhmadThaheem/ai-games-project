@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import random
 from .checkers_logic import CheckersGameLogic
 
@@ -158,9 +158,9 @@ class CheckersAI:
     
     def get_piece_value(self, piece: str) -> int:
         """Get the value of a piece"""
-        if piece.lower() == 'r':  # Regular piece
+        if piece.islower():  # Regular piece
             return 1
-        else:  # King
+        else:  # King (uppercase)
             return 3
     
     def evaluate_positional(self, game_logic: CheckersGameLogic, player: str) -> float:
@@ -174,12 +174,19 @@ class CheckersAI:
                 if piece and game_logic.get_piece_color(piece) == player:
                     # Advancement bonus
                     if player == 'red':
-                        score += row * 0.1  # Red wants to go down
+                        score += row * 0.1  # Red wants to go down (rows 0-7)
                     else:
-                        score += (7 - row) * 0.1  # White wants to go up
+                        score += (7 - row) * 0.1  # White wants to go up (rows 7-0)
                     
                     # Center control bonus
                     if 2 <= col <= 5:
                         score += 0.05
+                    
+                    # King safety bonus (keep kings in back rows)
+                    if piece.isupper():  # King piece
+                        if player == 'red' and row <= 2:
+                            score += 0.1
+                        elif player == 'white' and row >= 5:
+                            score += 0.1
         
         return score

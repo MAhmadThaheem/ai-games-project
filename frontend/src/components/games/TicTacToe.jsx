@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Home, Trophy, Cpu } from 'lucide-react';
 import { gameAPI } from '../../utils/api';
+import { useSound } from '../../hooks/useSound.js';
+import { useAudio } from '../../context/AudioContext.jsx';
 
 const TicTacToe = () => {
   const [gameId, setGameId] = useState(null);
@@ -10,8 +12,16 @@ const TicTacToe = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  // Sound Hooks
+  const { isMusicEnabled } = useAudio();
+  const [playMark] = useSound('ttt-mark', { volume: 0.5 });
+  const [playWin] = useSound('win', { volume: 0.7 });
+  const [playLose] = useSound('lose', { volume: 0.7 });
+  const [playClick] = useSound('click', { volume: 0.5 });
+
   // Initialize new game
   const startNewGame = async () => {
+    if (isMusicEnabled) playClick();
     setLoading(true);
     try {
       const response = await gameAPI.getAIMove({ action: 'new_game' });
@@ -46,6 +56,12 @@ const TicTacToe = () => {
       setCurrentPlayer(response.data.current_player);
       setStatus(response.data.status);
       
+      if (isMusicEnabled) {
+        playMark();
+        if (response.data.status === 'x_won') playWin();
+        if (response.data.status === 'o_won') playLose();
+      }
+
       // Update message based on game state
       if (response.data.status === 'x_won') {
         setMessage('🎉 You won! Congratulations!');

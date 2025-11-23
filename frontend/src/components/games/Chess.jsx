@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, Home, Trophy, Cpu, Settings, Crown, Shield, Sword } from 'lucide-react';
 import { gameAPI } from '../../utils/api';
+import { useSound } from '../../hooks/useSound.js'; // Import sound hook
+import { useAudio } from '../../context/AudioContext.jsx'; // Import audio context
 
 const Chess = () => {
   const [gameId, setGameId] = useState(null);
@@ -13,8 +15,18 @@ const Chess = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  // Sound Setup
+  const { isMusicEnabled } = useAudio();
+  const [playMove] = useSound('chess-move', { volume: 0.5 });
+  const [playCapture] = useSound('chess-capture', { volume: 0.6 });
+  const [playCheck] = useSound('chess-check', { volume: 0.6 });
+  const [playWin] = useSound('win', { volume: 0.7 });
+  const [playLose] = useSound('lose', { volume: 0.7 });
+  const [playClick] = useSound('click', { volume: 0.5 });
+
   // Initialize new game
   const startNewGame = async () => {
+    if (isMusicEnabled) playClick();
     setLoading(true);
     try {
       const response = await gameAPI.createChessGame(difficulty);
@@ -37,6 +49,8 @@ const Chess = () => {
     if (loading || currentPlayer !== 'white' || status !== 'in_progress') {
       return;
     }
+
+    if (isMusicEnabled) playClick();
 
     const square = `${String.fromCharCode(97 + col)}${8 - row}`;
     const piece = board[row][col];
@@ -90,6 +104,17 @@ const Chess = () => {
       setCurrentPlayer(response.data.current_player);
       setStatus(response.data.status);
       
+      // Play appropriate sound
+      if (isMusicEnabled) {
+        // Determine if capture happened (simple check: piece count changed? No, need better check.
+        // For now, simple move sound. Improve if we had capture data.)
+        playMove(); 
+        
+        if (response.data.status === 'check') playCheck();
+        if (response.data.status === 'white_won') playWin();
+        if (response.data.status === 'black_won') playLose();
+      }
+
       updateGameMessage(response.data.status);
       
     } catch (error) {

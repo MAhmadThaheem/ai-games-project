@@ -52,4 +52,28 @@ export const gameAPI = {
   solveMaze: (mazeData) => api.post('/api/maze/solve', mazeData),
 };
 
+//checkers
+export const checkersAPI = {
+  newGame: async (difficulty = 'medium') => {
+    const response = await fetch(`/api/checkers/new?difficulty=${difficulty}`, {
+      method: 'POST'
+    });
+    return response.json();
+  },
+
+  makeMove: async (gameId, fromRow, fromCol, toRow, toCol) => {
+    const response = await fetch(`/api/checkers/${gameId}/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromRow, fromCol, toRow, toCol })
+    });
+    return response.json();
+  },
+
+  getGameState: async (gameId) => {
+    const response = await fetch(`/api/checkers/${gameId}`);
+    return response.json();
+  }
+};
+
 export default api;

@@ -1,0 +1,527 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+
+const Checkers = () => {
+  const [board, setBoard] = useState([]);
+  const [currentPlayer, setCurrentPlayer] = useState('red');
+  const [selectedPiece, setSelectedPiece] = useState(null);
+  const [validMoves, setValidMoves] = useState([]);
+  const [gameId, setGameId] = useState(null);
+  const [gameOver, setGameOver] = useState(false);
+  const [winner, setWinner] = useState(null);
+  const [difficulty, setDifficulty] = useState('medium');
+  const [loading, setLoading] = useState(false);
+
+  // Custom sound hook implementation
+  const useSound = (soundPath, options = {}) => {
+    const audioRef = useRef(null);
+    const { volume = 1 } = options;
+
+    const play = useCallback(() => {
+      try {
+        if (!audioRef.current) {
+          audioRef.current = new Audio(soundPath);
+          audioRef.current.volume = volume;
+        }
+        
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(error => {
+          console.log('Audio play failed:', error);
+        });
+      } catch (error) {
+        console.log('Sound error:', error);
+      }
+    }, [soundPath, volume]);
+
+    return [play];
+  };
+
+  // Sound effects using inline custom hook
+  const [playMove] = useSound('/sounds/move.mp3', { volume: 0.5 });
+  const [playCapture] = useSound('/sounds/capture.mp3', { volume: 0.6 });
+  const [playSelect] = useSound('/sounds/select.mp3', { volume: 0.5 });
+  const [playInvalid] = useSound('/sounds/invalid.mp3', { volume: 0.4 });
+  const [playWin] = useSound('/sounds/win.mp3', { volume: 0.7 });
+  const [playLose] = useSound('/sounds/lose.mp3', { volume: 0.7 });
+  const [playPromote] = useSound('/sounds/promote.mp3', { volume: 0.6 });
+  const [playClick] = useSound('/sounds/click.mp3', { volume: 0.4 });
+  const [playGameStart] = useSound('/sounds/game-start.mp3', { volume: 0.6 });
+
+  // Initialize board
+  const initializeBoard = () => {
+    const newBoard = Array(8).fill(null).map(() => Array(8).fill(null));
+    
+    // Place red pieces (top)
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 8; col++) {
+        if ((row + col) % 2 === 1) {
+          newBoard[row][col] = 'r'; // red piece
+        }
+      }
+    }
+    
+    // Place white pieces (bottom)
+    for (let row = 5; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        if ((row + col) % 2 === 1) {
+          newBoard[row][col] = 'w'; // white piece
+        }
+      }
+    }
+    
+    return newBoard;
+  };
+
+  useEffect(() => {
+    startNewGame();
+  }, []);
+
+  const startNewGame = () => {
+    const initialBoard = initializeBoard();
+    setBoard(initialBoard);
+    setCurrentPlayer('red');
+    setSelectedPiece(null);
+    setValidMoves([]);
+    setGameOver(false);
+    setWinner(null);
+    setGameId(`checkers-${Date.now()}`);
+    playGameStart();
+  };
+
+  const getPieceColor = (piece) => {
+    if (!piece) return null;
+    return piece.toLowerCase() === 'r' ? 'red' : 'white';
+  };
+
+  const getValidMoves = (row, col) => {
+    const piece = board[row][col];
+    if (!piece) return [];
+
+    const color = getPieceColor(piece);
+    const isKing = piece === piece.toUpperCase();
+    const moves = [];
+
+    // Check normal moves
+    const directions = [];
+    if (color === 'red' || isKing) directions.push(1); // down
+    if (color === 'white' || isKing) directions.push(-1); // up
+
+    directions.forEach(rowDir => {
+      [-1, 1].forEach(colDir => {
+        const newRow = row + rowDir;
+        const newCol = col + colDir;
+        
+        if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+          if (!board[newRow][newCol]) {
+            moves.push({ 
+              row: newRow, 
+              col: newCol, 
+              type: 'move',
+              capture: false 
+            });
+          }
+        }
+      });
+    });
+
+    // Check capture moves
+    directions.forEach(rowDir => {
+      [-2, 2].forEach(colDir => {
+        const newRow = row + rowDir * 2;
+        const newCol = col + colDir;
+        const captureRow = row + rowDir;
+        const captureCol = col + colDir / 2;
+        
+        if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+          const capturedPiece = board[captureRow][captureCol];
+          if (capturedPiece && getPieceColor(capturedPiece) !== color && !board[newRow][newCol]) {
+            moves.push({ 
+              row: newRow, 
+              col: newCol, 
+              type: 'capture',
+              capture: true,
+              capturedRow: captureRow,
+              capturedCol: captureCol
+            });
+          }
+        }
+      });
+    });
+
+    return moves;
+  };
+
+  const handleSquareClick = async (row, col) => {
+    if (gameOver || currentPlayer !== 'red' || loading) return;
+
+    playClick();
+
+    const piece = board[row][col];
+    const pieceColor = getPieceColor(piece);
+
+    // If clicking on own piece, select it
+    if (piece && pieceColor === 'red') {
+      setSelectedPiece({ row, col });
+      const moves = getValidMoves(row, col);
+      setValidMoves(moves);
+      playSelect();
+      return;
+    }
+
+    // If a piece is selected and clicking on valid move square
+    if (selectedPiece && validMoves.some(move => move.row === row && move.col === col)) {
+      await makeMove(selectedPiece.row, selectedPiece.col, row, col);
+    } else {
+      // Deselect if clicking elsewhere
+      setSelectedPiece(null);
+      setValidMoves([]);
+      playInvalid();
+    }
+  };
+
+  const makeMove = async (fromRow, fromCol, toRow, toCol) => {
+    setLoading(true);
+    
+    // Create new board state
+    const newBoard = board.map(row => [...row]);
+    const piece = newBoard[fromRow][fromCol];
+    
+    // Move the piece
+    newBoard[toRow][toCol] = piece;
+    newBoard[fromRow][fromCol] = null;
+    
+    // Handle captures
+    const move = validMoves.find(m => m.row === toRow && m.col === toCol);
+    if (move && move.capture) {
+      newBoard[move.capturedRow][move.capturedCol] = null;
+      playCapture();
+    } else {
+      playMove();
+    }
+    
+    // Check for promotion to king
+    let wasPromoted = false;
+    if ((getPieceColor(piece) === 'red' && toRow === 7) || 
+        (getPieceColor(piece) === 'white' && toRow === 0)) {
+      newBoard[toRow][toCol] = piece.toUpperCase(); // Make king
+      wasPromoted = true;
+      playPromote();
+    }
+    
+    setBoard(newBoard);
+    setSelectedPiece(null);
+    setValidMoves([]);
+    
+    // Switch to AI turn
+    setCurrentPlayer('white');
+    
+    // Simulate AI thinking
+    setTimeout(() => {
+      makeAIMove(newBoard, wasPromoted);
+    }, 1000);
+  };
+
+  const makeAIMove = (currentBoard, wasHumanPromoted) => {
+    const aiMoves = [];
+    
+    // Find all AI pieces and their moves
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = currentBoard[row][col];
+        if (piece && getPieceColor(piece) === 'white') {
+          const moves = getValidMovesForPiece(currentBoard, row, col);
+          moves.forEach(move => {
+            aiMoves.push({
+              fromRow: row,
+              fromCol: col,
+              toRow: move.row,
+              toCol: move.col,
+              capture: move.capture,
+              score: evaluateMove(currentBoard, row, col, move.row, move.col, move.capture)
+            });
+          });
+        }
+      }
+    }
+    
+    if (aiMoves.length === 0) {
+      // AI has no moves - game over
+      setGameOver(true);
+      setWinner('red');
+      setLoading(false);
+      playWin();
+      return;
+    }
+    
+    // Choose best move based on difficulty
+    let bestMove;
+    if (difficulty === 'easy') {
+      // Random move
+      bestMove = aiMoves[Math.floor(Math.random() * aiMoves.length)];
+    } else if (difficulty === 'medium') {
+      // Prefer captures
+      const captures = aiMoves.filter(move => move.capture);
+      bestMove = captures.length > 0 ? captures[0] : aiMoves[0];
+    } else {
+      // Hard - choose highest score
+      bestMove = aiMoves.reduce((best, current) => 
+        current.score > best.score ? current : best
+      );
+    }
+    
+    // Execute AI move
+    const newBoard = currentBoard.map(row => [...row]);
+    const piece = newBoard[bestMove.fromRow][bestMove.fromCol];
+    
+    newBoard[bestMove.toRow][bestMove.toCol] = piece;
+    newBoard[bestMove.fromRow][bestMove.fromCol] = null;
+    
+    let wasAIPromoted = false;
+    if (bestMove.capture) {
+      // For captures, we need to determine which piece was captured
+      const rowDir = bestMove.toRow > bestMove.fromRow ? 1 : -1;
+      const colDir = bestMove.toCol > bestMove.fromCol ? 1 : -1;
+      const captureRow = bestMove.fromRow + rowDir;
+      const captureCol = bestMove.fromCol + colDir;
+      newBoard[captureRow][captureCol] = null;
+      playCapture();
+    } else {
+      playMove();
+    }
+    
+    // Check for AI promotion
+    if (getPieceColor(piece) === 'white' && bestMove.toRow === 0) {
+      newBoard[bestMove.toRow][bestMove.toCol] = piece.toUpperCase();
+      wasAIPromoted = true;
+      playPromote();
+    }
+    
+    setBoard(newBoard);
+    setCurrentPlayer('red');
+    setLoading(false);
+    
+    // Check if game is over (human has no moves)
+    checkGameOver(newBoard);
+  };
+
+  const getValidMovesForPiece = (boardState, row, col) => {
+    const piece = boardState[row][col];
+    if (!piece) return [];
+
+    const color = getPieceColor(piece);
+    const isKing = piece === piece.toUpperCase();
+    const moves = [];
+
+    const directions = [];
+    if (color === 'red' || isKing) directions.push(1);
+    if (color === 'white' || isKing) directions.push(-1);
+
+    directions.forEach(rowDir => {
+      [-1, 1].forEach(colDir => {
+        const newRow = row + rowDir;
+        const newCol = col + colDir;
+        
+        if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+          if (!boardState[newRow][newCol]) {
+            moves.push({ 
+              row: newRow, 
+              col: newCol, 
+              capture: false 
+            });
+          }
+        }
+      });
+    });
+
+    return moves;
+  };
+
+  const evaluateMove = (boardState, fromRow, fromCol, toRow, toCol, isCapture) => {
+    let score = 0;
+    
+    if (isCapture) score += 3;
+    
+    // Encourage advancement
+    if (getPieceColor(boardState[fromRow][fromCol]) === 'white') {
+      score += (7 - toRow) * 0.1; // White wants to move up
+    }
+    
+    // Center control
+    if (toCol >= 2 && toCol <= 5) score += 0.1;
+    
+    // Random factor for variety
+    score += Math.random() * 0.2;
+    
+    return score;
+  };
+
+  const checkGameOver = (boardState) => {
+    let redHasMoves = false;
+    
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const piece = boardState[row][col];
+        if (piece && getPieceColor(piece) === 'red') {
+          const moves = getValidMovesForPiece(boardState, row, col);
+          if (moves.length > 0) {
+            redHasMoves = true;
+            break;
+          }
+        }
+      }
+      if (redHasMoves) break;
+    }
+    
+    if (!redHasMoves) {
+      setGameOver(true);
+      setWinner('white');
+      playLose();
+    }
+  };
+
+  const renderPiece = (piece) => {
+    if (!piece) return null;
+
+    const color = getPieceColor(piece);
+    const isKing = piece === piece.toUpperCase();
+
+    return (
+      <div className={`w-8 h-8 rounded-full border-2 ${
+        color === 'red' 
+          ? 'bg-red-500 border-red-700 hover:bg-red-600' 
+          : 'bg-gray-200 border-gray-400 hover:bg-gray-300'
+      } flex items-center justify-center transition-colors duration-200 shadow-md`}>
+        {isKing && (
+          <div className={`w-4 h-4 rounded-full ${
+            color === 'red' ? 'bg-yellow-300' : 'bg-yellow-500'
+          } shadow-inner`} />
+        )}
+      </div>
+    );
+  };
+
+  const isMoveValid = (row, col) => {
+    return validMoves.some(move => move.row === row && move.col === col);
+  };
+
+  const isSelected = (row, col) => {
+    return selectedPiece && selectedPiece.row === row && selectedPiece.col === col;
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-purple-900 py-8 px-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 font-game">
+            CHECKERS AI
+          </h1>
+          <p className="text-xl text-white/80">
+            Classic checkers with intelligent AI opponent
+          </p>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-2xl">
+          {/* Controls */}
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6 p-4 bg-black/20 rounded-lg">
+            <div className="flex items-center space-x-4 mb-4 md:mb-0">
+              <label className="text-white font-semibold">Difficulty:</label>
+              <select 
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+                className="p-2 border border-white/30 rounded-lg bg-purple-800 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                disabled={loading}
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              {gameOver && (
+                <div className="text-xl font-bold text-white px-4 py-2 bg-green-600/50 rounded-lg">
+                  Game Over! {winner === 'red' ? 'You Win! 🎉' : 'AI Wins! 🤖'}
+                </div>
+              )}
+              
+              <button 
+                onClick={startNewGame}
+                disabled={loading}
+                className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              >
+                New Game
+              </button>
+            </div>
+          </div>
+
+          {/* Game Info */}
+          <div className="text-center mb-6">
+            <div className="text-2xl font-bold text-white mb-2">
+              {loading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-cyan-400 border-t-transparent"></div>
+                  <span>AI Thinking...</span>
+                </div>
+              ) : (
+                `Current Turn: ${currentPlayer === 'red' ? 'Your Turn 🔴' : 'AI Turn ⚪'}`
+              )}
+            </div>
+          </div>
+
+          {/* Checkers Board */}
+          <div className="flex justify-center">
+            <div className="bg-green-800 p-4 rounded-xl shadow-2xl border-4 border-amber-800">
+              {board.map((row, rowIndex) => (
+                <div key={rowIndex} className="flex">
+                  {row.map((piece, colIndex) => {
+                    const isBlack = (rowIndex + colIndex) % 2 === 1;
+                    const isValidMove = isMoveValid(rowIndex, colIndex);
+                    const isPieceSelected = isSelected(rowIndex, colIndex);
+                    
+                    return (
+                      <div
+                        key={`${rowIndex}-${colIndex}`}
+                        className={`w-12 h-12 flex items-center justify-center cursor-pointer transition-all duration-200 ${
+                          isBlack 
+                            ? 'bg-green-700 hover:bg-green-600' 
+                            : 'bg-amber-200 hover:bg-amber-300'
+                        } ${
+                          isPieceSelected ? 'ring-4 ring-yellow-400 shadow-lg' : ''
+                        } ${
+                          isValidMove ? 'ring-4 ring-blue-400 animate-pulse' : ''
+                        } ${
+                          !isBlack && !isValidMove && !isPieceSelected ? 'hover:bg-amber-300' : ''
+                        }`}
+                        onClick={() => handleSquareClick(rowIndex, colIndex)}
+                      >
+                        {renderPiece(piece)}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Game Instructions */}
+          <div className="mt-8 p-6 bg-black/20 rounded-lg border border-white/10">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">How to Play</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-white/80 text-sm">
+              <div className="space-y-2">
+                <p>• <span className="text-red-400">Red pieces</span> are yours (move downward)</p>
+                <p>• <span className="text-gray-300">White pieces</span> are AI (move upward)</p>
+                <p>• Click on your piece to select it</p>
+              </div>
+              <div className="space-y-2">
+                <p>• Move diagonally to empty squares</p>
+                <p>• Jump over opponent pieces to capture them</p>
+                <p>• Reach the opposite end to become a <span className="text-yellow-400">King</span></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Checkers;

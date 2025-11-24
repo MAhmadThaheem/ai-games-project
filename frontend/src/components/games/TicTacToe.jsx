@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Home, Trophy, Cpu } from 'lucide-react';
+import { RefreshCw, Zap, Trophy, AlertCircle } from 'lucide-react';
 import { gameAPI } from '../../utils/api';
 import { useSound } from '../../hooks/useSound.js';
 import { useAudio } from '../../context/AudioContext.jsx';
+import BackButton from '../common/BackButton';
 
 const TicTacToe = () => {
   const [gameId, setGameId] = useState(null);
@@ -18,10 +19,11 @@ const TicTacToe = () => {
   const [playWin] = useSound('win', { volume: 0.7 });
   const [playLose] = useSound('lose', { volume: 0.7 });
   const [playClick] = useSound('click', { volume: 0.5 });
+  const [playGameStart] = useSound('game-start', { volume: 0.6 });
 
   // Initialize new game
   const startNewGame = async () => {
-    if (isMusicEnabled) playClick();
+    if (isMusicEnabled) playGameStart();
     setLoading(true);
     try {
       const response = await gameAPI.getAIMove({ action: 'new_game' });
@@ -29,7 +31,7 @@ const TicTacToe = () => {
       setBoard(response.data.board);
       setCurrentPlayer(response.data.current_player);
       setStatus(response.data.status);
-      setMessage('New game started! You are X. Make your move!');
+      setMessage('New game started! You are X.');
     } catch (error) {
       setMessage('Error starting game. Please try again.');
     } finally {
@@ -37,14 +39,23 @@ const TicTacToe = () => {
     }
   };
 
-  // Make a move
+  // Make a move with Optimistic UI
   const makeMove = async (row, col) => {
     if (loading || board[row][col] || status !== 'in_progress' || currentPlayer !== 'X') {
       return;
     }
 
     setLoading(true);
+    setMessage('AI is thinking...');
+
+    // 1. Optimistic Update
+    const newBoard = board.map(r => [...r]);
+    newBoard[row][col] = 'X';
+    setBoard(newBoard);
+    if (isMusicEnabled) playMark();
+
     try {
+      // 2. Send move to backend
       const response = await gameAPI.getAIMove({
         game_id: gameId,
         row,
@@ -52,33 +63,37 @@ const TicTacToe = () => {
         player: 'X'
       });
 
-      setBoard(response.data.board);
-      setCurrentPlayer(response.data.current_player);
-      setStatus(response.data.status);
-      
-      if (isMusicEnabled) {
-        playMark();
-        if (response.data.status === 'x_won') playWin();
-        if (response.data.status === 'o_won') playLose();
-      }
+      // 3. Artificial Delay for AI
+      setTimeout(() => {
+          setBoard(response.data.board);
+          setCurrentPlayer(response.data.current_player);
+          setStatus(response.data.status);
+          
+          if (isMusicEnabled) {
+            // Play sound for AI move (if not game over immediately)
+            if (response.data.status === 'in_progress' && response.data.current_player === 'X') {
+                playMark();
+            }
 
-      // Update message based on game state
-      if (response.data.status === 'x_won') {
-        setMessage('🎉 You won! Congratulations!');
-      } else if (response.data.status === 'o_won') {
-        setMessage('🤖 AI wins! Better luck next time!');
-      } else if (response.data.status === 'draw') {
-        setMessage('🤝 It\'s a draw! Well played!');
-      } else {
-        setMessage('AI is thinking...');
-        // AI move will be made automatically by the backend
-        setTimeout(() => {
-          setMessage('Your turn!');
-        }, 1000);
-      }
+            if (response.data.status === 'x_won') playWin();
+            if (response.data.status === 'o_won') playLose();
+          }
+
+          // Update message based on game state
+          if (response.data.status === 'x_won') {
+            setMessage('🎉 You won! Congratulations!');
+          } else if (response.data.status === 'o_won') {
+            setMessage('🤖 AI wins! Better luck next time!');
+          } else if (response.data.status === 'draw') {
+            setMessage('🤝 It\'s a draw! Well played!');
+          } else {
+            setMessage('Your turn!');
+          }
+          
+          setLoading(false);
+      }, 800); // Slightly shorter delay for TTT as it's a fast game
     } catch (error) {
       setMessage('Error making move. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -89,140 +104,136 @@ const TicTacToe = () => {
   }, []);
 
   const getCellColor = (cell) => {
-    if (cell === 'X') return 'text-blue-400';
-    if (cell === 'O') return 'text-red-400';
-    return 'text-gray-300';
-  };
-
-  const getStatusColor = () => {
-    switch (status) {
-      case 'x_won': return 'text-green-400';
-      case 'o_won': return 'text-red-400';
-      case 'draw': return 'text-yellow-400';
-      default: return 'text-white';
-    }
+    if (cell === 'X') return 'text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]';
+    if (cell === 'O') return 'text-pink-500 drop-shadow-[0_0_10px_rgba(236,72,153,0.5)]';
+    return 'text-transparent';
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-8">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-8 px-4 relative">
+      <BackButton />
+
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 pt-8 md:pt-0">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 font-game">
-            TIC TAC TOE AI
+            TIC TAC TOE
           </h1>
           <p className="text-xl text-white/80">
-            Challenge our unbeatable AI using the Minimax algorithm
+            Unbeatable Minimax AI
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Game Board */}
-          <div className="lg:col-span-2">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
-              {/* Game Info */}
-              <div className="flex justify-between items-center mb-6">
-                <div className="text-white">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Cpu size={20} />
-                    <span className="font-semibold">Current Player:</span>
-                    <span className={`font-bold ${currentPlayer === 'X' ? 'text-blue-400' : 'text-red-400'}`}>
-                      {currentPlayer}
-                    </span>
-                  </div>
-                  <div className={`text-lg font-semibold ${getStatusColor()}`}>
-                    {status === 'in_progress' ? 'Game in Progress' :
-                     status === 'x_won' ? 'You Win! 🎉' :
-                     status === 'o_won' ? 'AI Wins! 🤖' : 'Draw! 🤝'}
-                  </div>
-                </div>
-                
-                <button
-                  onClick={startNewGame}
-                  disabled={loading}
-                  className="btn-primary flex items-center space-x-2"
-                >
-                  <RefreshCw size={18} />
-                  <span>New Game</span>
-                </button>
-              </div>
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-2xl">
+          
+          {/* Controls Bar */}
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6 p-4 bg-black/20 rounded-lg">
+             <div className="flex items-center space-x-4 mb-4 md:mb-0">
+               <div className="flex items-center gap-2 text-white">
+                 <Zap className="text-yellow-400" size={20} />
+                 <span className="font-semibold">Difficulty:</span> 
+                 <span className="font-bold text-red-400 uppercase">Impossible</span>
+               </div>
+            </div>
 
-              {/* Message */}
-              {message && (
-                <div className="bg-white/10 rounded-lg p-4 mb-6 text-center">
-                  <p className="text-white font-medium">{message}</p>
+            <div className="flex items-center space-x-4">
+              {status !== 'in_progress' && (
+                <div className={`text-lg font-bold px-4 py-2 rounded-lg ${
+                  status === 'x_won' ? 'bg-green-600/50' : 
+                  status === 'o_won' ? 'bg-red-600/50' : 
+                  'bg-yellow-600/50'
+                } text-white`}>
+                   {status === 'x_won' ? 'You Win! 🎉' : 
+                    status === 'o_won' ? 'AI Wins! 🤖' : 
+                    'Draw 🤝'}
                 </div>
               )}
 
-              {/* Tic Tac Toe Board */}
-              <div className="bg-white/5 rounded-xl p-4">
-                {board.map((row, rowIndex) => (
-                  <div key={rowIndex} className="flex justify-center">
-                    {row.map((cell, colIndex) => (
-                      <button
-                        key={`${rowIndex}-${colIndex}`}
-                        onClick={() => makeMove(rowIndex, colIndex)}
-                        disabled={cell || loading || status !== 'in_progress' || currentPlayer !== 'X'}
-                        className={`w-20 h-20 md:w-24 md:h-24 m-2 rounded-xl border-2 transition-all duration-200
-                          ${cell ? 'border-transparent' : 'border-white/20 hover:border-white/40'}
-                          ${!cell && status === 'in_progress' && currentPlayer === 'X' 
-                            ? 'hover:bg-white/10 cursor-pointer' 
-                            : 'cursor-not-allowed'}
-                          bg-white/5 flex items-center justify-center`}
-                      >
-                        <span className={`text-3xl md:text-4xl font-bold ${getCellColor(cell)}`}>
-                          {cell}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </div>
+              <button
+                onClick={startNewGame}
+                disabled={loading}
+                className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-semibold rounded-lg hover:from-purple-600 hover:to-pink-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex items-center gap-2"
+              >
+                <RefreshCw size={18} />
+                <span>New Game</span>
+              </button>
             </div>
           </div>
 
-          {/* Game Information */}
-          <div className="space-y-6">
-            {/* AI Info Card */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center space-x-2">
-                <Cpu className="text-game-purple" />
-                <span>AI Information</span>
+          {/* Status Indicator */}
+          <div className="text-center mb-6">
+            <div className="text-2xl font-bold text-white mb-2 h-8">
+              {loading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-400 border-t-transparent"></div>
+                  <span>AI Thinking...</span>
+                </div>
+              ) : (
+                <span className={currentPlayer === 'X' ? 'text-cyan-400' : 'text-pink-500'}>
+                   {currentPlayer === 'X' ? 'Your Turn (X)' : 'AI Turn (O)'}
+                </span>
+              )}
+            </div>
+            {message && !loading && status !== 'in_progress' && (
+              <p className="text-white/70">{message}</p>
+            )}
+          </div>
+
+          {/* Tic Tac Toe Board */}
+          <div className="flex justify-center">
+             <div className="bg-white/5 rounded-2xl p-4 shadow-2xl border border-white/10">
+              {board.map((row, rowIndex) => (
+                <div key={rowIndex} className="flex justify-center">
+                  {row.map((cell, colIndex) => (
+                    <button
+                      key={`${rowIndex}-${colIndex}`}
+                      onClick={() => makeMove(rowIndex, colIndex)}
+                      disabled={cell || loading || status !== 'in_progress' || currentPlayer !== 'X'}
+                      className={`
+                        w-24 h-24 md:w-32 md:h-32 m-2 rounded-xl 
+                        bg-black/30 backdrop-blur-sm
+                        border-2 transition-all duration-200
+                        ${cell ? 'border-transparent' : 'border-white/10 hover:border-white/30 hover:bg-white/5'}
+                        ${!cell && status === 'in_progress' && currentPlayer === 'X' && !loading
+                          ? 'cursor-pointer' 
+                          : 'cursor-default'}
+                        flex items-center justify-center
+                        group
+                      `}
+                    >
+                      <span className={`text-5xl md:text-6xl font-bold transform transition-transform duration-300 ${cell ? 'scale-100' : 'scale-0'} ${getCellColor(cell)}`}>
+                        {cell}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+           {/* Stats / Info */}
+           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-5 bg-black/20 rounded-lg border border-white/10">
+              <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                <Trophy size={18} className="text-yellow-400"/> Game Stats
               </h3>
-              <div className="space-y-3 text-white/80">
-                <p><strong>Algorithm:</strong> Minimax</p>
-                <p><strong>Difficulty:</strong> Unbeatable</p>
-                <p><strong>Depth:</strong> Full game tree</p>
-                <p className="text-sm">
-                  Our AI evaluates all possible moves to choose the optimal one.
-                  It's impossible to win against perfect play!
-                </p>
-              </div>
+              <ul className="space-y-2 text-white/80 text-sm">
+                 <li>• <strong>Algorithm:</strong> Minimax (Recursive)</li>
+                 <li>• <strong>Depth:</strong> Full Game Tree Search</li>
+                 <li>• <strong>Possibilities:</strong> 255,168 games</li>
+              </ul>
             </div>
-
-            {/* How to Play */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4">How to Play</h3>
-              <div className="space-y-2 text-white/80">
-                <p>• You play as <strong className="text-blue-400">X</strong></p>
-                <p>• AI plays as <strong className="text-red-400">O</strong></p>
-                <p>• Click any empty cell to make your move</p>
-                <p>• Get three in a row to win</p>
-                <p>• AI responds instantly with optimal moves</p>
-              </div>
-            </div>
-
-            {/* Game Stats */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4">Game Stats</h3>
-              <div className="space-y-2 text-white/80">
-                <p>• Perfect play always results in draw</p>
-                <p>• 255,168 possible games</p>
-                <p>• 9! possible move sequences</p>
-                <p>• First move advantage exists</p>
-              </div>
+            
+            <div className="p-5 bg-black/20 rounded-lg border border-white/10">
+              <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                <AlertCircle size={18} className="text-cyan-400"/> Fun Fact
+              </h3>
+              <p className="text-white/80 text-sm italic">
+                "Ideally played, Tic-Tac-Toe is a futile game. If both players play perfectly, the game will always end in a draw."
+              </p>
             </div>
           </div>
+
         </div>
       </div>
     </div>

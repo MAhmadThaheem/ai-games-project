@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Home, Trophy, Cpu, Settings, Crown, Shield, Sword } from 'lucide-react';
+import { RefreshCw, Crown, Shield, Sword, Cpu } from 'lucide-react';
 import { gameAPI } from '../../utils/api';
-import { useSound } from '../../hooks/useSound.js'; // Import sound hook
-import { useAudio } from '../../context/AudioContext.jsx'; // Import audio context
+import { useSound } from '../../hooks/useSound.js';
+import { useAudio } from '../../context/AudioContext.jsx';
+import BackButton from '../common/BackButton';
 
 const Chess = () => {
   const [gameId, setGameId] = useState(null);
@@ -18,15 +19,22 @@ const Chess = () => {
   // Sound Setup
   const { isMusicEnabled } = useAudio();
   const [playMove] = useSound('chess-move', { volume: 0.5 });
-  const [playCapture] = useSound('chess-capture', { volume: 0.6 });
   const [playCheck] = useSound('chess-check', { volume: 0.6 });
   const [playWin] = useSound('win', { volume: 0.7 });
   const [playLose] = useSound('lose', { volume: 0.7 });
   const [playClick] = useSound('click', { volume: 0.5 });
+  const [playGameStart] = useSound('game-start', { volume: 0.6 });
+
+  // Helper to convert algebraic notation (e.g., "a8") to indices
+  const parseSquare = (square) => {
+    const col = square.charCodeAt(0) - 97;
+    const row = 8 - parseInt(square[1]);
+    return { row, col };
+  };
 
   // Initialize new game
   const startNewGame = async () => {
-    if (isMusicEnabled) playClick();
+    if (isMusicEnabled) playGameStart();
     setLoading(true);
     try {
       const response = await gameAPI.createChessGame(difficulty);
@@ -90,67 +98,68 @@ const Chess = () => {
     }
   };
 
-  // Make a move
+  // Make a move with Optimistic UI Update
   const makeMove = async (fromSquare, toSquare) => {
-    setLoading(true);
+    setLoading(true); // Lock board immediately
+    setMessage('AI is thinking...');
+
+    // 1. OPTIMISTIC UPDATE: Move user piece immediately visually
+    const from = parseSquare(fromSquare);
+    const to = parseSquare(toSquare);
+    
+    // Create deep copy of board to modify locally
+    const newBoard = board.map(row => [...row]);
+    newBoard[to.row][to.col] = newBoard[from.row][from.col]; // Move piece
+    newBoard[from.row][from.col] = null; // Clear old spot
+    setBoard(newBoard); // Update UI instantly
+    
+    if (isMusicEnabled) playMove(); // Play sound for user move
+
     try {
+      // 2. Send move to backend
       const response = await gameAPI.makeChessMove(gameId, {
         from_square: fromSquare,
         to_square: toSquare,
         player: 'white'
       });
 
-      setBoard(response.data.board);
-      setCurrentPlayer(response.data.current_player);
-      setStatus(response.data.status);
-      
-      // Play appropriate sound
-      if (isMusicEnabled) {
-        // Determine if capture happened (simple check: piece count changed? No, need better check.
-        // For now, simple move sound. Improve if we had capture data.)
-        playMove(); 
+      // 3. Artificial Delay for AI "Thinking"
+      setTimeout(() => {
+        setBoard(response.data.board);
+        setCurrentPlayer(response.data.current_player);
+        setStatus(response.data.status);
         
-        if (response.data.status === 'check') playCheck();
-        if (response.data.status === 'white_won') playWin();
-        if (response.data.status === 'black_won') playLose();
-      }
+        // Play appropriate sound for result/AI move
+        if (isMusicEnabled) {
+          if (response.data.status === 'check') playCheck();
+          else if (response.data.status === 'white_won') playWin();
+          else if (response.data.status === 'black_won') playLose();
+          else {
+             playMove(); 
+          }
+        }
 
-      updateGameMessage(response.data.status);
+        updateGameMessage(response.data.status);
+        setLoading(false); // Unlock board only after delay
+      }, 1000);
       
     } catch (error) {
       setMessage('Error making move. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
 
   const updateGameMessage = (gameStatus) => {
-  switch (gameStatus) {
-    case 'white_won':
-      setMessage('🎉 Checkmate! You won! Congratulations!');
-      break;
-    case 'black_won':
-      setMessage('🤖 Checkmate! AI wins! Better luck next time!');
-      break;
-    case 'stalemate':
-      setMessage('🤝 Stalemate! The game is a draw.');
-      break;
-    case 'check':
-      setMessage('⚡ You are in check! Protect your king!');
-      break;
-    case 'checkmate':
-      setMessage('♔ Checkmate! Game over.');
-      break;
-    case 'in_progress':
-      setMessage('AI is thinking...');
-      setTimeout(() => {
-        setMessage('Your turn! Make your move.');
-      }, 1000);
-      break;
-    default:
-      setMessage('Game in progress');
-  }
-};
+    switch (gameStatus) {
+      case 'white_won': setMessage('🎉 Checkmate! You won! Congratulations!'); break;
+      case 'black_won': setMessage('🤖 Checkmate! AI wins! Better luck next time!'); break;
+      case 'stalemate': setMessage('🤝 Stalemate! The game is a draw.'); break;
+      case 'check': setMessage('⚡ You are in check! Protect your king!'); break;
+      case 'checkmate': setMessage('♔ Checkmate! Game over.'); break;
+      case 'in_progress': setMessage('Your turn! Make your move.'); break;
+      default: setMessage('Game in progress');
+    }
+  };
 
   // Initialize game on component mount
   useEffect(() => {
@@ -193,244 +202,175 @@ const Chess = () => {
     return isLight ? 'bg-amber-200' : 'bg-amber-800';
   };
 
-  const getDifficultyIcon = (level) => {
-    switch (level) {
-      case 'easy': return <Shield className="text-green-400" size={20} />;
-      case 'medium': return <Sword className="text-yellow-400" size={20} />;
-      case 'hard': return <Crown className="text-red-400" size={20} />;
-      default: return <Cpu size={20} />;
-    }
-  };
-
-  const getDifficultyColor = (level) => {
-    switch (level) {
-      case 'easy': return 'from-green-500 to-emerald-600';
-      case 'medium': return 'from-yellow-500 to-orange-600';
-      case 'hard': return 'from-red-500 to-pink-600';
-      default: return 'from-blue-500 to-purple-600';
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-8">
-      <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="text-center mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-purple-900 py-8 px-4 relative">
+      <BackButton />
+      
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8 pt-8 md:pt-0">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 font-game">
             CHESS AI
           </h1>
           <p className="text-xl text-white/80">
-            Challenge our AI at different difficulty levels
+            Grandmaster level chess with intelligent AI
           </p>
         </div>
 
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Chess Board */}
-          <div className="lg:col-span-3">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
-              {/* Game Controls */}
-              <div className="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0">
-                <div className="text-white">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Cpu size={20} />
-                    <span className="font-semibold">Current Player:</span>
-                    <span className={`font-bold ${currentPlayer === 'white' ? 'text-blue-400' : 'text-red-400'}`}>
-                      {currentPlayer === 'white' ? 'You (White)' : 'AI (Black)'}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {getDifficultyIcon(difficulty)}
-                    <span className="font-semibold">Difficulty:</span>
-                    <span className="font-bold capitalize">{difficulty}</span>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-4">
-                  <button
-                    onClick={startNewGame}
-                    disabled={loading}
-                    className="btn-primary flex items-center space-x-2"
-                  >
-                    <RefreshCw size={18} />
-                    <span>New Game</span>
-                  </button>
-                </div>
-              </div>
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-2xl">
+          {/* Controls Bar */}
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6 p-4 bg-black/20 rounded-lg">
+            <div className="flex items-center space-x-4 mb-4 md:mb-0">
+              <label className="text-white font-semibold flex items-center gap-2">
+                <Cpu size={18} /> Difficulty:
+              </label>
+              <select 
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+                className="p-2 border border-white/30 rounded-lg bg-purple-800 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                disabled={loading}
+              >
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
 
-              {/* Message */}
-              {message && (
-                <div className="bg-white/10 rounded-lg p-4 mb-6 text-center">
-                  <p className="text-white font-medium">{message}</p>
+            <div className="flex items-center space-x-4">
+              {status !== 'in_progress' && status !== 'check' && (
+                <div className={`text-lg font-bold px-4 py-2 rounded-lg ${
+                  status.includes('won') ? 'bg-green-600/50 text-white' : 'bg-yellow-600/50 text-white'
+                }`}>
+                   {status === 'white_won' ? 'Checkmate! You Win! 🎉' : 
+                    status === 'black_won' ? 'Checkmate! AI Wins! 🤖' : 
+                    'Draw 🤝'}
                 </div>
               )}
+              
+              <button 
+                onClick={startNewGame}
+                disabled={loading}
+                className="px-6 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-semibold rounded-lg hover:from-cyan-600 hover:to-blue-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex items-center gap-2"
+              >
+                <RefreshCw size={18} />
+                New Game
+              </button>
+            </div>
+          </div>
 
-              {/* Chess Board */}
-              <div className="bg-amber-900/50 rounded-xl p-4 border-2 border-amber-700/50">
-                {/* Files labels (a-h) */}
-                <div className="flex justify-center mb-2">
-                  <div className="w-12 md:w-16"></div>
-                  {['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((file) => (
-                    <div key={file} className="w-12 md:w-16 text-center text-white/70 font-semibold">
-                      {file}
-                    </div>
-                  ))}
+          {/* Status Indicator */}
+          <div className="text-center mb-6">
+            <div className="text-2xl font-bold text-white mb-2 h-8">
+              {loading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-cyan-400 border-t-transparent"></div>
+                  <span>AI Thinking...</span>
                 </div>
+              ) : (
+                <span className={status === 'check' ? 'text-red-400 animate-pulse' : 'text-white'}>
+                  {status === 'check' ? '⚠️ Check!' : `Current Turn: ${currentPlayer === 'white' ? 'Your Turn (White)' : 'AI Turn (Black)'}`}
+                </span>
+              )}
+            </div>
+            {message && !loading && status !== 'in_progress' && (
+              <p className="text-white/70">{message}</p>
+            )}
+          </div>
 
-                {/* Board and ranks */}
-                {board.map((row, rowIndex) => (
-                  <div key={rowIndex} className="flex justify-center items-center">
-                    {/* Rank label (8-1) */}
-                    <div className="w-12 md:w-16 text-center text-white/70 font-semibold mr-2">
-                      {8 - rowIndex}
-                    </div>
-                    
-                    {/* Board squares */}
-                    {row.map((piece, colIndex) => {
-                      const squareColor = getSquareColor(rowIndex, colIndex);
-                      const isLegal = isLegalMove(rowIndex, colIndex);
-                      const isSelected = isSelectedSquare(rowIndex, colIndex);
-                      
-                      return (
-                        <button
-  key={`${rowIndex}-${colIndex}`}
-  onClick={() => handleSquareClick(rowIndex, colIndex)}
-  disabled={loading || currentPlayer !== 'white' || status !== 'in_progress'}
-  className={`
-    w-12 h-12 md:w-16 md:h-16 relative
-    ${squareColor}
-    ${isSelected ? 'ring-4 ring-blue-500 ring-opacity-90' : ''}
-    ${isLegal ? 'ring-4 ring-green-500 ring-opacity-80' : ''}
-    transition-all duration-200
-    hover:brightness-110
-    flex items-center justify-center
-    border border-amber-600/30
-    ${(!piece && status === 'in_progress' && currentPlayer === 'white') 
-      ? 'cursor-pointer' 
-      : 'cursor-default'}
-  `}
->
-  {piece && (
-    <span className={`text-3xl md:text-4xl font-bold ${getPieceColor(piece)}`}>
-      {getPieceSymbol(piece)}
-    </span>
-  )}
-  
-  {/* Legal move indicator */}
-  {isLegal && !piece && (
-    <div className="absolute inset-0 flex items-center justify-center">
-      <div className="w-3 h-3 bg-green-500 rounded-full opacity-80"></div>
-    </div>
-  )}
-  
-  {/* Legal capture indicator */}
-  {isLegal && piece && (
-    <div className="absolute inset-0 ring-4 ring-red-500 ring-opacity-70 rounded"></div>
-  )}
-</button>
-                      );
-                    })}
+          {/* Chess Board Container */}
+          <div className="flex justify-center">
+            <div className="bg-amber-900/50 p-4 rounded-xl shadow-2xl border-4 border-amber-800/50 relative">
+              
+              {/* Files labels (top) */}
+              <div className="flex justify-center mb-2">
+                <div className="w-12 md:w-16"></div>
+                {['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((file) => (
+                  <div key={file} className="w-12 md:w-16 text-center text-white/70 font-bold uppercase text-sm">
+                    {file}
                   </div>
                 ))}
               </div>
 
-              {/* Game Status */}
-              <div className="mt-6 text-center">
-                <div className={`text-2xl font-bold ${
-                  status === 'white_won' ? 'text-green-400' :
-                  status === 'black_won' ? 'text-red-400' :
-                  status === 'stalemate' ? 'text-yellow-400' :
-                  status === 'check' ? 'text-orange-400' :
-                  'text-white'
-                }`}>
-                  {status === 'in_progress' ? 'Game in Progress' :
-                   status === 'white_won' ? 'Checkmate! You Win! 🎉' :
-                   status === 'black_won' ? 'Checkmate! AI Wins! 🤖' :
-                   status === 'stalemate' ? 'Stalemate! Draw! 🤝' :
-                   status === 'check' ? 'Check! ⚡' :
-                   'Game Over'}
+              {board.map((row, rowIndex) => (
+                <div key={rowIndex} className="flex justify-center items-center">
+                  {/* Rank label (left) */}
+                  <div className="w-6 md:w-8 text-center text-white/70 font-bold text-sm mr-2">
+                    {8 - rowIndex}
+                  </div>
+                  
+                  {/* Board squares */}
+                  {row.map((piece, colIndex) => {
+                    const squareColor = getSquareColor(rowIndex, colIndex);
+                    const isLegal = isLegalMove(rowIndex, colIndex);
+                    const isSelected = isSelectedSquare(rowIndex, colIndex);
+                    
+                    return (
+                      <button
+                        key={`${rowIndex}-${colIndex}`}
+                        onClick={() => handleSquareClick(rowIndex, colIndex)}
+                        disabled={loading || (currentPlayer !== 'white' && !loading) || (status !== 'in_progress' && status !== 'check')}
+                        className={`
+                          w-12 h-12 md:w-16 md:h-16 relative
+                          ${squareColor}
+                          ${isSelected ? 'ring-4 ring-yellow-400 z-10' : ''}
+                          ${isLegal ? 'ring-4 ring-blue-400 ring-opacity-80 z-10 animate-pulse' : ''}
+                          transition-all duration-200
+                          flex items-center justify-center
+                          ${(!piece && status === 'in_progress' && currentPlayer === 'white' && !loading) 
+                            ? 'cursor-pointer hover:brightness-110' 
+                            : 'cursor-default'}
+                        `}
+                      >
+                        {piece && (
+                          <span className={`text-3xl md:text-4xl font-bold ${getPieceColor(piece)} select-none`}>
+                            {getPieceSymbol(piece)}
+                          </span>
+                        )}
+                        
+                        {/* Legal move dot indicator for empty squares */}
+                        {isLegal && !piece && (
+                          <div className="absolute w-3 h-3 bg-blue-500/50 rounded-full"></div>
+                        )}
+                        
+                        {/* Capture indicator */}
+                        {isLegal && piece && (
+                          <div className="absolute inset-0 ring-4 ring-red-500/70 z-20"></div>
+                        )}
+                      </button>
+                    );
+                  })}
+                  
+                  {/* Rank label (right) */}
+                  <div className="w-6 md:w-8 text-center text-white/70 font-bold text-sm ml-2">
+                    {8 - rowIndex}
+                  </div>
                 </div>
+              ))}
+              
+              {/* Files labels (bottom) */}
+              <div className="flex justify-center mt-2">
+                <div className="w-12 md:w-16"></div>
+                {['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((file) => (
+                  <div key={file} className="w-12 md:w-16 text-center text-white/70 font-bold uppercase text-sm">
+                    {file}
+                  </div>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Side Panel */}
-          <div className="space-y-6">
-            {/* Difficulty Selection */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center space-x-2">
-                <Settings className="text-game-purple" />
-                <span>Difficulty Level</span>
-              </h3>
-              
-              <div className="space-y-3">
-                {['easy', 'medium', 'hard'].map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => setDifficulty(level)}
-                    disabled={loading}
-                    className={`w-full p-4 rounded-lg text-left transition-all duration-300 ${
-                      difficulty === level 
-                        ? `bg-gradient-to-r ${getDifficultyColor(level)} text-white shadow-lg` 
-                        : 'bg-white/10 text-white/80 hover:bg-white/20'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      {getDifficultyIcon(level)}
-                      <div>
-                        <div className="font-semibold capitalize">{level}</div>
-                        <div className="text-sm opacity-80">
-                          {level === 'easy' && 'Basic moves, good for beginners'}
-                          {level === 'medium' && 'Strategic play, intermediate level'}
-                          {level === 'hard' && 'Advanced AI, challenging gameplay'}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                ))}
+          {/* Game Instructions */}
+          <div className="mt-8 p-6 bg-black/20 rounded-lg border border-white/10">
+            <h3 className="text-xl font-bold text-white mb-4 text-center">How to Play</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-white/80 text-sm">
+              <div className="space-y-2">
+                <p className="flex items-center gap-2"><div className="w-3 h-3 bg-white rounded-full"></div> <strong>You play as White</strong> (Capital pieces)</p>
+                <p className="flex items-center gap-2"><div className="w-3 h-3 bg-black border border-white rounded-full"></div> <strong>AI plays as Black</strong> (Small pieces)</p>
+                <p>• Click on your piece to see legal moves (highlighted in blue)</p>
               </div>
-            </div>
-
-            {/* Game Information */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4">How to Play</h3>
-              <div className="space-y-2 text-white/80 text-sm">
-                <p>• <strong>You play as White</strong> (uppercase pieces)</p>
-                <p>• <strong>AI plays as Black</strong> (lowercase pieces)</p>
-                <p>• Click on your piece to see legal moves</p>
-                <p>• Click on highlighted square to move</p>
-                <p>• Capture opponent's king to win</p>
-                <p>• Watch out for checks and checkmates!</p>
-              </div>
-            </div>
-
-            {/* AI Information */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4">AI Algorithms</h3>
-              <div className="space-y-3 text-white/80 text-sm">
-                <div>
-                  <strong className="text-green-400">Easy:</strong> Random moves with basic strategy
-                </div>
-                <div>
-                  <strong className="text-yellow-400">Medium:</strong> Minimax algorithm (2-ply depth)
-                </div>
-                <div>
-                  <strong className="text-red-400">Hard:</strong> Advanced minimax with alpha-beta pruning (3-ply depth)
-                </div>
-                <div className="mt-2 text-xs opacity-70">
-                  Higher difficulty levels use more computational power and deeper analysis.
-                </div>
-              </div>
-            </div>
-
-            {/* Game Stats */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4">Chess Facts</h3>
-              <div className="space-y-2 text-white/80 text-sm">
-                <p>• ~10¹²⁰ possible chess games</p>
-                <p>• Longest game: 5,949 moves</p>
-                <p>• Shortest checkmate: 2 moves</p>
-                <p>• First computer chess: 1950s</p>
-                <p>• Deep Blue vs Kasparov: 1997</p>
+              <div className="space-y-2">
+                <p>• <span className="text-yellow-400">Easy:</span> Random moves, good for learning</p>
+                <p>• <span className="text-cyan-400">Medium:</span> Basic strategy (Minimax)</p>
+                <p>• <span className="text-red-400">Hard:</span> Advanced tactics (Alpha-Beta Pruning)</p>
               </div>
             </div>
           </div>

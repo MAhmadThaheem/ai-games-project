@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Cpu, Circle, Settings, Trophy, Zap, Crown } from 'lucide-react';
+import { RefreshCw, Cpu, Circle, Settings, Trophy } from 'lucide-react';
 import { gameAPI } from '../../utils/api';
 import { useSound } from '../../hooks/useSound.js';
 import { useAudio } from '../../context/AudioContext.jsx';
+import BackButton from '../common/BackButton.jsx';
 
 const Connect4 = () => {
   const [gameId, setGameId] = useState(null);
@@ -20,10 +21,11 @@ const Connect4 = () => {
   const [playWin] = useSound('win', { volume: 0.7 });
   const [playLose] = useSound('lose', { volume: 0.7 });
   const [playClick] = useSound('click', { volume: 0.5 });
+  const [playGameStart] = useSound('game-start', { volume: 0.6 });
 
   // Initialize new game
   const startNewGame = async () => {
-    if (isMusicEnabled) playClick();
+    if (isMusicEnabled) playGameStart();
     setLoading(true);
     try {
       const response = await gameAPI.createConnect4Game(difficulty);
@@ -40,34 +42,64 @@ const Connect4 = () => {
     }
   };
 
-  // Handle column click
+  // Handle column click with Optimistic UI
   const handleColumnClick = async (col) => {
     if (loading || currentPlayer !== 'red' || status !== 'in_progress') {
       return;
     }
 
     setLoading(true);
+    setMessage('AI is thinking...');
+
+    // 1. Optimistic Update: Calculate where piece falls locally
+    const newBoard = board.map(row => [...row]);
+    let droppedRow = -1;
+    // Find the first empty cell from bottom up
+    for (let r = 5; r >= 0; r--) {
+        if (!newBoard[r][col]) {
+            newBoard[r][col] = 'R'; // Place Red piece
+            droppedRow = r;
+            break;
+        }
+    }
+
+    if (droppedRow !== -1) {
+        setBoard(newBoard);
+        if (isMusicEnabled) playDrop();
+    } else {
+        // Column full
+        setLoading(false);
+        setMessage('Column is full!');
+        return;
+    }
+
     try {
+      // 2. Send move to backend
       const response = await gameAPI.makeConnect4Move(gameId, {
         column: col,
         player: 'red'
       });
 
-      setBoard(response.data.board);
-      setCurrentPlayer(response.data.current_player);
-      setStatus(response.data.status);
-      
-      if (isMusicEnabled) {
-        playDrop();
-        if (response.data.status === 'red_won') playWin();
-        if (response.data.status === 'yellow_won') playLose();
-      }
+      // 3. Artificial Delay for AI Response
+      setTimeout(() => {
+          setBoard(response.data.board);
+          setCurrentPlayer(response.data.current_player);
+          setStatus(response.data.status);
+          
+          if (isMusicEnabled) {
+            // Play drop sound for AI move (unless game over)
+            if (response.data.status === 'in_progress') playDrop();
 
-      updateGameMessage(response.data.status);
+            if (response.data.status === 'red_won') playWin();
+            if (response.data.status === 'yellow_won') playLose();
+          }
+
+          updateGameMessage(response.data.status);
+          setLoading(false);
+      }, 1000);
       
     } catch (error) {
       setMessage('Invalid move! Please try a different column.');
-    } finally {
       setLoading(false);
     }
   };
@@ -76,7 +108,7 @@ const Connect4 = () => {
     switch (gameStatus) {
       case 'red_won':
         setMessage('🎉 You won! Connect Four!');
-        findWinningCells();
+        findWinningCells(); // Note: Ideally backend should return winning coordinates
         break;
       case 'yellow_won':
         setMessage('🤖 AI wins! Connect Four!');
@@ -86,10 +118,7 @@ const Connect4 = () => {
         setMessage('🤝 It\'s a draw! Board is full.');
         break;
       case 'in_progress':
-        setMessage('AI is thinking...');
-        setTimeout(() => {
-          setMessage('Your turn! Drop a red piece.');
-        }, 1000);
+        setMessage('Your turn! Drop a red piece.');
         break;
       default:
         setMessage('Game in progress');
@@ -97,9 +126,8 @@ const Connect4 = () => {
   };
 
   const findWinningCells = () => {
-    // This is a simplified version - in a real implementation, 
-    // you'd want to get the winning cells from the backend
-    setWinningCells([]); // Reset for now
+    // Simplified placeholder. In production, backend should return winning indices.
+    setWinningCells([]); 
   };
 
   // Initialize game on component mount
@@ -117,7 +145,7 @@ const Connect4 = () => {
   const getPieceColor = (piece) => {
     if (piece === 'R') return 'bg-red-500 border-red-600';
     if (piece === 'Y') return 'bg-yellow-400 border-yellow-500';
-    return 'bg-gray-800 border-gray-700';
+    return 'bg-gray-800 border-gray-700'; // Empty slot background
   };
 
   const getPieceShadow = (piece) => {
@@ -130,29 +158,22 @@ const Connect4 = () => {
     return winningCells.some(cell => cell.row === row && cell.col === col);
   };
 
-  const getDifficultyIcon = (level) => {
-    switch (level) {
-      case 'easy': return <Zap className="text-green-400" size={20} />;
-      case 'medium': return <Cpu className="text-yellow-400" size={20} />;
-      case 'hard': return <Crown className="text-red-400" size={20} />;
-      default: return <Cpu size={20} />;
-    }
-  };
-
   const getDifficultyColor = (level) => {
     switch (level) {
-      case 'easy': return 'from-green-500 to-emerald-600';
-      case 'medium': return 'from-yellow-500 to-orange-600';
-      case 'hard': return 'from-red-500 to-pink-600';
-      default: return 'from-blue-500 to-purple-600';
+      case 'easy': return 'text-green-400';
+      case 'medium': return 'text-yellow-400';
+      case 'hard': return 'text-red-400';
+      default: return 'text-white';
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 py-8 px-4 relative">
+      <BackButton />
+
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 pt-8 md:pt-0">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 font-game">
             CONNECT 4 AI
           </h1>
@@ -161,190 +182,140 @@ const Connect4 = () => {
           </p>
         </div>
 
-        <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Game Board */}
-          <div className="lg:col-span-3">
-            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20">
-              {/* Game Controls */}
-              <div className="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0">
-                <div className="text-white">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Cpu size={20} />
-                    <span className="font-semibold">Current Player:</span>
-                    <span className={`font-bold ${currentPlayer === 'red' ? 'text-red-400' : 'text-yellow-400'}`}>
-                      {currentPlayer === 'red' ? 'You (Red)' : 'AI (Yellow)'}
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {getDifficultyIcon(difficulty)}
-                    <span className="font-semibold">Difficulty:</span>
-                    <span className="font-bold capitalize">{difficulty}</span>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-4">
-                  <button
-                    onClick={startNewGame}
-                    disabled={loading}
-                    className="btn-primary flex items-center space-x-2"
-                  >
-                    <RefreshCw size={18} />
-                    <span>New Game</span>
-                  </button>
-                </div>
-              </div>
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-2xl">
+          
+          {/* Controls Bar */}
+          <div className="flex flex-col md:flex-row justify-between items-center mb-6 p-4 bg-black/20 rounded-lg">
+             <div className="flex items-center space-x-4 mb-4 md:mb-0">
+              <label className="text-white font-semibold flex items-center gap-2">
+                <Settings size={18} /> Difficulty:
+              </label>
+              <select 
+                value={difficulty}
+                onChange={(e) => setDifficulty(e.target.value)}
+                className={`p-2 border border-white/30 rounded-lg bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-400 font-bold capitalize ${getDifficultyColor(difficulty)}`}
+                disabled={loading}
+              >
+                <option value="easy" className="text-green-400">Easy</option>
+                <option value="medium" className="text-yellow-400">Medium</option>
+                <option value="hard" className="text-red-400">Hard</option>
+              </select>
+            </div>
 
-              {/* Message */}
-              {message && (
-                <div className="bg-white/10 rounded-lg p-4 mb-6 text-center">
-                  <p className="text-white font-medium">{message}</p>
+            <div className="flex items-center space-x-4">
+              {status !== 'in_progress' && (
+                <div className={`text-lg font-bold px-4 py-2 rounded-lg ${
+                  status === 'red_won' ? 'bg-green-600/50 text-white' : 
+                  status === 'yellow_won' ? 'bg-red-600/50 text-white' : 
+                  'bg-yellow-600/50 text-white'
+                }`}>
+                   {status === 'red_won' ? 'You Win! 🎉' : 
+                    status === 'yellow_won' ? 'AI Wins! 🤖' : 
+                    'Draw 🤝'}
                 </div>
               )}
 
-              {/* Connect 4 Board */}
-              <div className="bg-blue-600 rounded-xl p-4 border-4 border-blue-700">
-                {/* Column headers */}
-                <div className="flex justify-center mb-2">
-                  {[...Array(7)].map((_, col) => (
-                    <div key={col} className="w-12 md:w-16 text-center">
-                      <button
-                        onClick={() => handleColumnClick(col)}
-                        disabled={loading || currentPlayer !== 'red' || status !== 'in_progress'}
-                        className={`w-10 h-10 md:w-12 md:h-12 rounded-full transition-all duration-200
-                          ${currentPlayer === 'red' && status === 'in_progress' 
-                            ? 'bg-red-500/20 hover:bg-red-500/40 cursor-pointer border-2 border-red-400/50' 
-                            : 'bg-gray-500/20 cursor-default'}
-                          flex items-center justify-center`}
-                      >
-                        <Circle className="text-white/60" size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Game board */}
-                <div className="bg-blue-800 rounded-lg p-4 border-2 border-blue-900">
-                  {board.map((row, rowIndex) => (
-                    <div key={rowIndex} className="flex justify-center">
-                      {row.map((piece, colIndex) => (
-                        <div
-                          key={`${rowIndex}-${colIndex}`}
-                          className="w-12 h-12 md:w-16 md:h-16 p-1"
-                        >
-                          <div className={`w-full h-full rounded-full border-4 transition-all duration-300
-                            ${getPieceColor(piece)} ${getPieceShadow(piece)}
-                            ${isWinningCell(rowIndex, colIndex) ? 'ring-4 ring-white ring-opacity-80 animate-pulse' : ''}
-                            flex items-center justify-center`}>
-                            {!piece && (
-                              <div className="w-8 h-8 md:w-12 md:h-12 rounded-full bg-blue-700/30 border-2 border-blue-600/50"></div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Game Status */}
-              <div className="mt-6 text-center">
-                <div className={`text-2xl font-bold ${
-                  status === 'red_won' ? 'text-green-400' :
-                  status === 'yellow_won' ? 'text-red-400' :
-                  status === 'draw' ? 'text-yellow-400' :
-                  'text-white'
-                }`}>
-                  {status === 'in_progress' ? 'Game in Progress' :
-                   status === 'red_won' ? 'You Win! Connect Four! 🎉' :
-                   status === 'yellow_won' ? 'AI Wins! Connect Four! 🤖' :
-                   status === 'draw' ? 'Draw! Board Full 🤝' :
-                   'Game Over'}
-                </div>
-              </div>
+              <button
+                onClick={startNewGame}
+                disabled={loading}
+                className="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-indigo-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg flex items-center gap-2"
+              >
+                <RefreshCw size={18} />
+                <span>New Game</span>
+              </button>
             </div>
           </div>
 
-          {/* Side Panel */}
-          <div className="space-y-6">
-            {/* Difficulty Selection */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4 flex items-center space-x-2">
-                <Settings className="text-game-purple" />
-                <span>Difficulty Level</span>
-              </h3>
+          {/* Status Indicator */}
+          <div className="text-center mb-6">
+            <div className="text-2xl font-bold text-white mb-2 h-8">
+              {loading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-400 border-t-transparent"></div>
+                  <span>AI Thinking...</span>
+                </div>
+              ) : (
+                <span className={currentPlayer === 'red' ? 'text-red-400' : 'text-yellow-400'}>
+                   {currentPlayer === 'red' ? 'Your Turn (Red) 🔴' : 'AI Turn (Yellow) 🟡'}
+                </span>
+              )}
+            </div>
+            {message && !loading && status !== 'in_progress' && (
+              <p className="text-white/70">{message}</p>
+            )}
+          </div>
+
+          {/* Connect 4 Board */}
+          <div className="flex justify-center">
+            <div className="bg-blue-600 rounded-xl p-4 border-4 border-blue-700 shadow-2xl">
               
-              <div className="space-y-3">
-                {['easy', 'medium', 'hard'].map((level) => (
-                  <button
-                    key={level}
-                    onClick={() => setDifficulty(level)}
-                    disabled={loading}
-                    className={`w-full p-4 rounded-lg text-left transition-all duration-300 ${
-                      difficulty === level 
-                        ? `bg-gradient-to-r ${getDifficultyColor(level)} text-white shadow-lg` 
-                        : 'bg-white/10 text-white/80 hover:bg-white/20'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      {getDifficultyIcon(level)}
-                      <div>
-                        <div className="font-semibold capitalize">{level}</div>
-                        <div className="text-sm opacity-80">
-                          {level === 'easy' && 'Basic strategy, good for beginners'}
-                          {level === 'medium' && 'Strategic play, looks 3 moves ahead'}
-                          {level === 'hard' && 'Advanced AI, looks 5 moves ahead'}
+              {/* Column Selectors (Hover Arrows/Buttons) */}
+              <div className="flex justify-center mb-2">
+                {[...Array(7)].map((_, col) => (
+                  <div key={col} className="w-12 md:w-16 text-center">
+                    <button
+                      onClick={() => handleColumnClick(col)}
+                      disabled={loading || currentPlayer !== 'red' || status !== 'in_progress'}
+                      className={`w-10 h-10 md:w-12 md:h-12 rounded-full transition-all duration-200
+                        ${currentPlayer === 'red' && status === 'in_progress' && !loading
+                          ? 'bg-red-500/20 hover:bg-red-500/50 cursor-pointer border-2 border-red-400/50 animate-bounce' 
+                          : 'bg-transparent cursor-default opacity-0'}
+                        flex items-center justify-center mx-auto`}
+                    >
+                      <Circle className="text-white" size={20} fill="currentColor" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Grid */}
+              <div className="bg-blue-800 rounded-lg p-3 border-2 border-blue-900 inline-block">
+                {board.map((row, rowIndex) => (
+                  <div key={rowIndex} className="flex justify-center">
+                    {row.map((piece, colIndex) => (
+                      <div
+                        key={`${rowIndex}-${colIndex}`}
+                        className="w-12 h-12 md:w-16 md:h-16 p-1.5"
+                      >
+                        <div className={`w-full h-full rounded-full border-4 transition-all duration-500 transform
+                          ${getPieceColor(piece)} ${getPieceShadow(piece)}
+                          ${isWinningCell(rowIndex, colIndex) ? 'ring-4 ring-white ring-opacity-80 animate-pulse scale-105' : ''}
+                          ${!piece ? 'inner-shadow' : 'scale-100'} 
+                          flex items-center justify-center`}>
                         </div>
                       </div>
-                    </div>
-                  </button>
+                    ))}
+                  </div>
                 ))}
               </div>
             </div>
+          </div>
 
-            {/* Game Information */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4">How to Play</h3>
-              <div className="space-y-2 text-white/80 text-sm">
-                <p>• <strong className="text-red-400">You play as Red</strong></p>
-                <p>• <strong className="text-yellow-400">AI plays as Yellow</strong></p>
-                <p>• Click on a column to drop your piece</p>
-                <p>• Connect <strong>4 pieces in a row</strong> to win</p>
-                <p>• Can be horizontal, vertical, or diagonal</p>
-                <p>• Pieces fall to the lowest available space</p>
-              </div>
+           {/* Game Instructions & Stats */}
+           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-5 bg-black/20 rounded-lg border border-white/10">
+              <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                <Trophy size={18} className="text-yellow-400"/> How to Play
+              </h3>
+              <ul className="space-y-2 text-white/80 text-sm">
+                <li>• You play as <strong className="text-red-400">Red</strong>, AI is <strong className="text-yellow-400">Yellow</strong>.</li>
+                <li>• Click the arrows above columns to drop pieces.</li>
+                <li>• Connect <strong>4 pieces</strong> horizontally, vertically, or diagonally.</li>
+              </ul>
             </div>
-
-            {/* AI Information */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4">AI Algorithms</h3>
-              <div className="space-y-3 text-white/80 text-sm">
-                <div>
-                  <strong className="text-green-400">Easy:</strong> Basic strategy, immediate threats
-                </div>
-                <div>
-                  <strong className="text-yellow-400">Medium:</strong> Minimax algorithm (3-ply depth)
-                </div>
-                <div>
-                  <strong className="text-red-400">Hard:</strong> Advanced minimax with alpha-beta pruning (5-ply depth)
-                </div>
-                <div className="mt-2 text-xs opacity-70">
-                  The AI evaluates thousands of possible moves to choose the optimal one.
-                </div>
-              </div>
-            </div>
-
-            {/* Game Stats */}
-            <div className="game-card">
-              <h3 className="text-xl font-bold text-white mb-4">Connect 4 Facts</h3>
+            
+            <div className="p-5 bg-black/20 rounded-lg border border-white/10">
+              <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                <Cpu size={18} className="text-cyan-400"/> AI Level
+              </h3>
               <div className="space-y-2 text-white/80 text-sm">
-                <p>• Solved game since 1988</p>
-                <p>• First player can always force a win</p>
-                <p>• 4,531,985,219,092 possible positions</p>
-                <p>• Perfect play leads to first player win</p>
-                <p>• Originally called "Captain's Mistress"</p>
+                <p><span className="text-green-400 font-bold">Easy:</span> Basic blocks.</p>
+                <p><span className="text-yellow-400 font-bold">Medium:</span> 3-ply Minimax.</p>
+                <p><span className="text-red-400 font-bold">Hard:</span> 5-ply Alpha-Beta Pruning.</p>
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </div>

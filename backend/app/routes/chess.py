@@ -41,7 +41,7 @@ async def make_move(game_id: str, move: ChessMove):
     game = ChessGame(**game_data)
     
     # Validate move
-    if game.status != GameStatus.IN_PROGRESS:
+    if game.status != GameStatus.IN_PROGRESS and game.status != GameStatus.CHECK:
         raise HTTPException(status_code=400, detail="Game is already over")
     
     if move.player != game.current_player:
@@ -67,29 +67,25 @@ async def make_move(game_id: str, move: ChessMove):
     game.moves.append(move)
     game.move_history.append(f"{move.from_square}{move.to_square}")
     
-    # Check game status
+    # Check game status for the OPPONENT
     opponent = ChessPlayer.BLACK if move.player == ChessPlayer.WHITE else ChessPlayer.WHITE
     
-    # Check for checkmate
-    opponent_logic = ChessGameLogic(game.board)
-    opponent_logic = ChessGameLogic(game.board)
-    if opponent_logic.is_checkmate(opponent.value):
-        game.status = GameStatus.CHECKMATE
+    if game_logic.is_checkmate(opponent.value):
         game.status = GameStatus.WHITE_WON if move.player == ChessPlayer.WHITE else GameStatus.BLACK_WON
-    elif opponent_logic.is_stalemate(opponent.value):
+    elif game_logic.is_stalemate(opponent.value):
         game.status = GameStatus.STALEMATE
-    elif opponent_logic.is_check(opponent.value):
+    elif game_logic.is_check(opponent.value):
         game.status = GameStatus.CHECK
     else:
         game.status = GameStatus.IN_PROGRESS
         
-    # Update game in database
+    # Update game in database (Human move)
     await collection.update_one(
         {"_id": ObjectId(game_id)},
         {
             "$set": {
                 "board": game.board,
-                "current_player": game.current_player,
+                "current_player": opponent, # Switch player
                 "status": game.status,
                 "moves": [move.dict() for move in game.moves],
                 "move_history": game.move_history,
@@ -98,7 +94,10 @@ async def make_move(game_id: str, move: ChessMove):
         }
     )
     
-    # If game is still in progress and it's AI's turn, make AI move
+    # Update local game object for AI processing
+    game.current_player = opponent
+
+    # If game is still in progress and it's AI's turn (Black), make AI move
     if (game.status == GameStatus.IN_PROGRESS or game.status == GameStatus.CHECK) and \
        game.current_player == ChessPlayer.BLACK:
         
@@ -120,14 +119,10 @@ async def make_move(game_id: str, move: ChessMove):
             game.move_history.append(f"{ai_move.from_square}{ai_move.to_square}")
             
             # Check game status after AI move
-            human_moves = ai_logic.get_legal_moves('white')
-            
-            if not human_moves:
-                if ai_logic.is_check('white'):
-                    game.status = GameStatus.CHECKMATE
-                    game.status = GameStatus.BLACK_WON
-                else:
-                    game.status = GameStatus.STALEMATE
+            if ai_logic.is_checkmate('white'):
+                game.status = GameStatus.BLACK_WON
+            elif ai_logic.is_stalemate('white'):
+                game.status = GameStatus.STALEMATE
             elif ai_logic.is_check('white'):
                 game.status = GameStatus.CHECK
             else:
@@ -195,5 +190,13 @@ async def get_legal_moves(game_id: str, square: str):
     if not current_player_piece:
         return {"legal_moves": []}
     
-    moves = game_logic.get_piece_moves(row, col, piece)
-    return {"legal_moves": [move['to'] for move in moves]}
+    # Note: Use get_legal_moves to ensure we only return moves that don't result in check
+    # We filter the full list of legal moves to find ones starting from this square
+    all_legal_moves = game_logic.get_legal_moves(game.current_player.value)
+    
+    moves_for_square = [
+        move['to'] for move in all_legal_moves 
+        if move['from'] == square
+    ]
+    
+    return {"legal_moves": moves_for_square}

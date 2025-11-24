@@ -11,7 +11,9 @@ import {
   CheckSquare,
   Volume2,
   VolumeX,
-  ArrowLeft
+  ArrowLeft,
+  Footprints, // New Import
+  Ship        // New Import
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useSound } from '../hooks/useSound.js';
@@ -26,19 +28,19 @@ const FeaturedGames = () => {
   // Use custom sound hook for effects
   const [playClick] = useSound('/sounds/click.mp3', { volume: 1 });
   const [playHover] = useSound('/sounds/hover.mp3', { volume: 0.6 });
-  const [playSelect] = useSound('/sounds/select.mp3', { volume: 1 });
   const [playGameStart] = useSound('/sounds/game-start.mp3', { volume: 1 });
 
   const featuredGames = [
     {
       id: 1,
-      name: "Maze Solver",
-      description: "Watch AI algorithms find the shortest path through complex mazes",
-      icon: <Network className="text-game-green" size={32} />,
-      color: "from-green-500 to-emerald-600",
-      difficulty: "Easy",
-      features: ["Pathfinding AI", "Visualization", "Multiple Algorithms"],
-      status: "soon"
+      name: "Maze Runner",
+      description: "Navigate complex mazes against an intelligent A* Pathfinding AI",
+      icon: <Footprints className="text-game-green" size={32} />,
+      color: "from-emerald-500 to-teal-600",
+      difficulty: "Medium",
+      features: ["A* Search", "Terrain Costs", "Real-time AI"],
+      route: "/maze",
+      status: "live"
     },
     {
       id: 2,
@@ -94,6 +96,17 @@ const FeaturedGames = () => {
       route: "/checkers",
       status: "live"
     },
+    {
+      id: 7,
+      name: "Logical Battleship",
+      description: "Strategic warfare powered by Propositional Logic & Probability engines",
+      icon: <Ship className="text-blue-400" size={32} />,
+      color: "from-blue-600 to-indigo-700",
+      difficulty: "Hard",
+      features: ["Inference Engine", "Probability Map", "Logic Hints"],
+      route: "/battleship",
+      status: "live"
+    },
   ];
 
   const handleHover = () => {
@@ -102,8 +115,7 @@ const FeaturedGames = () => {
 
   const handleGameClick = (game) => {
     if (isMusicEnabled) {
-      // playSelect(); // Remove this, it clashes
-      playGameStart(); // Keep this, but with better sound
+      playGameStart(); 
     }
     
     if (game.route) {

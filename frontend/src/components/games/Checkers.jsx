@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSound } from '../../hooks/useSound.js';
 import { useAudio } from '../../context/AudioContext.jsx';
+import BackButton from '../common/BackButton';
 
 const Checkers = () => {
   const [board, setBoard] = useState([]);
@@ -381,9 +382,11 @@ const Checkers = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-purple-900 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-indigo-900 to-purple-900 py-8 px-4 relative">
+      <BackButton />
+
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 pt-8 md:pt-0">
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 font-game">
             CHECKERS AI
           </h1>

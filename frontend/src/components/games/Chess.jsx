@@ -54,7 +54,7 @@ const Chess = () => {
 
   // Handle square click
   const handleSquareClick = async (row, col) => {
-    if (loading || currentPlayer !== 'white' || status !== 'in_progress') {
+    if (loading || currentPlayer !== 'white' || status !== 'in_progress'&& status !== 'check') {
       return;
     }
 

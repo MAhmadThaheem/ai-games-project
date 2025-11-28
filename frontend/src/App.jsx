@@ -10,6 +10,7 @@ import { AudioProvider } from './context/AudioContext'; // Import the provider
 import './App.css';
 import Battleship from './components/games/Battleship';
 import MazeRunner from './components/games/MazeRunner';
+import Pacman from './components/games/Pacman';
 
 function App() {
   // REMOVED: All local audio state and useEffects from here
@@ -26,7 +27,8 @@ function App() {
             <Route path="/connect4" element={<Connect4 />} />
             <Route path="/tictactoe" element={<TicTacToe />} />
             <Route path="/maze" element={<MazeRunner />} />
-            <Route path="/battleship" element={<Battleship />} />      
+            <Route path="/battleship" element={<Battleship />} />
+            <Route path='/pacman' element={<Pacman/>}/>      
           </Routes>
         </div>
       </Router>

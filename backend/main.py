@@ -1,10 +1,9 @@
-
 from app.routes.checkers import router as checkers_router
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routes import tictactoe, connect4, chess, maze, battleship
+from app.routes import tictactoe, connect4, chess, maze, battleship, pacman # Added pacman
 from app.database import connect_to_mongo, close_mongo_connection
 
 app = FastAPI(
@@ -28,6 +27,8 @@ app.include_router(chess.router)
 app.include_router(connect4.router)
 app.include_router(maze.router)
 app.include_router(battleship.router)
+app.include_router(pacman.router) # Added pacman router
+
 @app.on_event("startup")
 async def startup_event():
     await connect_to_mongo()
@@ -74,6 +75,13 @@ async def get_games():
                 "description": "Advanced chess engine",
                 "difficulty": "Expert",
                 "players": 3100
+            },
+            {
+                "id": 5,
+                "name": "Pacman AI",
+                "description": "A* Pathfinding & FSM",
+                "difficulty": "Dynamic",
+                "players": 950
             }
         ]
     }

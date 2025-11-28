@@ -48,12 +48,16 @@ export const gameAPI = {
   
   getConnect4LegalMoves: (gameId) => 
     api.get(`/api/connect4/${gameId}/legal-moves`),
+  
   // Maze Solver (to be implemented)
   solveMaze: (mazeData) => api.post('/api/maze/solve', mazeData),
   getMazeMove: (state) => api.post('/api/maze/next-move', { state }),
 
   // Battleship
   getBattleshipHint: (state) => api.post('/api/battleship/hint', { state }),
+
+  // Pacman (New!)
+  getPacmanGhostMove: (data) => api.post('/api/pacman/ghost-move', data),
 };
 
 //checkers

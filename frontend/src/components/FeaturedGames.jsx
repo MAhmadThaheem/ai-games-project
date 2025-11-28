@@ -12,8 +12,9 @@ import {
   Volume2,
   VolumeX,
   ArrowLeft,
-  Footprints, // New Import
-  Ship        // New Import
+  Footprints,
+  Ship,
+  Ghost // New Import for Pacman
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useSound } from '../hooks/useSound.js';
@@ -107,6 +108,17 @@ const FeaturedGames = () => {
       route: "/battleship",
       status: "live"
     },
+    {
+      id: 8, // New Game ID
+      name: "Pacman AI",
+      description: "Survive against ghosts powered by A* Pathfinding and Finite State Machines",
+      icon: <Ghost className="text-yellow-400" size={32} />, // Using Ghost icon
+      color: "from-yellow-500 to-orange-600", // Pacman-themed colors
+      difficulty: "Dynamic",
+      features: ["A* Pathfinding", "Finite State AI", "Dynamic Difficulty"],
+      route: "/pacman", // Make sure this route exists in your Router
+      status: "live"
+    },
   ];
 
   const handleHover = () => {
@@ -164,7 +176,8 @@ const FeaturedGames = () => {
       "Easy": "from-green-400 to-green-600",
       "Medium": "from-yellow-400 to-yellow-600",
       "Hard": "from-red-400 to-red-600",
-      "Variable": "from-purple-400 to-purple-600"
+      "Variable": "from-purple-400 to-purple-600",
+      "Dynamic": "from-orange-400 to-orange-600" // Added for Pacman
     };
     return colors[difficulty] || "from-gray-400 to-gray-600";
   };

@@ -1,5 +1,4 @@
 from typing import List, Optional, Tuple, Dict, Any
-import random
 
 class ChessGameLogic:
     def __init__(self, board: List[List[Optional[str]]]):

@@ -72,6 +72,16 @@ async def make_move(game_id: str, move: ChessMove):
     
     if game_logic.is_checkmate(opponent.value):
         game.status = GameStatus.WHITE_WON if move.player == ChessPlayer.WHITE else GameStatus.BLACK_WON
+        
+        # ======================================================
+        # 🔥 CRITICAL CHANGE: THIS TRIGGERS THE LEARNING 🔥
+        # ======================================================
+        if game.status == GameStatus.WHITE_WON:
+            print("AI Lost! Triggering reinforcement learning...")
+            ai = ChessAI(game.difficulty.value)
+            ai.learn_from_loss(game.move_history)
+        # ======================================================
+            
     elif game_logic.is_stalemate(opponent.value):
         game.status = GameStatus.STALEMATE
     elif game_logic.is_check(opponent.value):
@@ -85,7 +95,7 @@ async def make_move(game_id: str, move: ChessMove):
         {
             "$set": {
                 "board": game.board,
-                "current_player": opponent, # Switch player
+                "current_player": opponent, 
                 "status": game.status,
                 "moves": [move.dict() for move in game.moves],
                 "move_history": game.move_history,
@@ -104,47 +114,69 @@ async def make_move(game_id: str, move: ChessMove):
         ai = ChessAI(game.difficulty.value)
         ai_move_data = ai.get_best_move(game.board, 'black')
         
-        if ai_move_data:
-            ai_move = ChessMove(
-                from_square=ai_move_data['from'],
-                to_square=ai_move_data['to'],
-                player=ChessPlayer.BLACK
-            )
+        # 1. SAFETY CHECK: Did AI actually find a move?
+        if ai_move_data and 'from' in ai_move_data and 'to' in ai_move_data:
             
-            # Make AI move
+            # 2. REFEREE CHECK: Is this move ACTUALLY legal?
+            # We explicitly check if this move is in the list of legal moves
             ai_logic = ChessGameLogic(game.board)
-            ai_logic.make_move(ai_move.from_square, ai_move.to_square)
-            game.board = ai_logic.board
-            game.moves.append(ai_move)
-            game.move_history.append(f"{ai_move.from_square}{ai_move.to_square}")
+            legal_ai_moves = ai_logic.get_legal_moves('black')
             
-            # Check game status after AI move
-            if ai_logic.is_checkmate('white'):
-                game.status = GameStatus.BLACK_WON
-            elif ai_logic.is_stalemate('white'):
-                game.status = GameStatus.STALEMATE
-            elif ai_logic.is_check('white'):
-                game.status = GameStatus.CHECK
-            else:
-                game.status = GameStatus.IN_PROGRESS
-            
-            game.current_player = ChessPlayer.WHITE
-            
-            # Update with AI move
-            await collection.update_one(
-                {"_id": ObjectId(game_id)},
-                {
-                    "$set": {
-                        "board": game.board,
-                        "current_player": game.current_player,
-                        "status": game.status,
-                        "moves": [move.dict() for move in game.moves],
-                        "move_history": game.move_history,
-                        "updated_at": datetime.utcnow()
-                    }
-                }
+            is_legal = any(
+                m['from'] == ai_move_data['from'] and m['to'] == ai_move_data['to'] 
+                for m in legal_ai_moves
             )
-    
+            
+            if is_legal:
+                ai_move = ChessMove(
+                    from_square=ai_move_data['from'],
+                    to_square=ai_move_data['to'],
+                    player=ChessPlayer.BLACK
+                )
+                
+                # Make AI move
+                ai_logic.make_move(ai_move.from_square, ai_move.to_square)
+                game.board = ai_logic.board
+                game.moves.append(ai_move)
+                game.move_history.append(f"{ai_move.from_square}{ai_move.to_square}")
+                
+                # Check game status after AI move
+                if ai_logic.is_checkmate('white'):
+                    game.status = GameStatus.BLACK_WON
+                elif ai_logic.is_stalemate('white'):
+                    game.status = GameStatus.STALEMATE
+                elif ai_logic.is_check('white'):
+                    game.status = GameStatus.CHECK
+                else:
+                    game.status = GameStatus.IN_PROGRESS
+                
+                game.current_player = ChessPlayer.WHITE
+            else:
+                # AI returned a move, but it was ILLEGAL (The "Glitch")
+                print("🚨 AI tried to play an illegal move! Forcing Loss.")
+                game.status = GameStatus.WHITE_WON
+                # Trigger learning for this crash
+                ai.learn_from_loss(game.move_history)
+        else:
+            # AI returned NO move (It gave up/Checkmate)
+            print("🏳️ AI has no moves left. You win!")
+            game.status = GameStatus.WHITE_WON
+            ai.learn_from_loss(game.move_history)
+
+        # Update with AI move (or Game Over status)
+        await collection.update_one(
+            {"_id": ObjectId(game_id)},
+            {
+                "$set": {
+                    "board": game.board,
+                    "current_player": game.current_player,
+                    "status": game.status,
+                    "moves": [move.dict() for move in game.moves],
+                    "move_history": game.move_history,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
     return {
         "board": game.board,
         "current_player": game.current_player,
@@ -190,8 +222,6 @@ async def get_legal_moves(game_id: str, square: str):
     if not current_player_piece:
         return {"legal_moves": []}
     
-    # Note: Use get_legal_moves to ensure we only return moves that don't result in check
-    # We filter the full list of legal moves to find ones starting from this square
     all_legal_moves = game_logic.get_legal_moves(game.current_player.value)
     
     moves_for_square = [

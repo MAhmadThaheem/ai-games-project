@@ -1,98 +1,107 @@
 import random
+from typing import List, Tuple
 
-class BattleshipLogic:
+class BattleshipAI:
     def __init__(self):
-        self.rows = 10
-        self.cols = 10
-
-    def get_logical_hint(self, board, ships_remaining):
-        """
-        Uses a Probability Density / Constraint Satisfaction approach to simulate 'Logic'.
-        It calculates which square has the highest probability of containing a ship
-        based on the remaining ships and current hits/misses.
-        """
-        probability_grid = [[0] * self.cols for _ in range(self.rows)]
-        max_prob = -1
-        best_coords = None
+        self.board_size = 10
+        self.ships = [5, 4, 3, 3, 2] 
         
-        # 1. Analyze "Hunt" vs "Target" mode
+    def get_best_move(self, board_state: List[List[int]], difficulty: str = "hard") -> Tuple[int, int]:
+        """
+        Determines move based on difficulty.
+        0=Unknown, 1=Miss, 2=Hit, 3=Sunk
+        """
+        # 1. Check for 'Target Mode' (unfinished hits)
+        # Even Medium AI should know how to finish a kill
         hits = []
-        for r in range(self.rows):
-            for c in range(self.cols):
-                if board[r][c] == "hit":
+        for r in range(self.board_size):
+            for c in range(self.board_size):
+                if board_state[r][c] == 2: # Hit but not sunk
                     hits.append((r, c))
         
-        # LOGIC ENGINE:
-        # If we have hits that aren't sunk, we use strict logic (Constraint Satisfaction)
-        if hits:
-            # Simple Logic: Find neighbors of hits
-            candidates = []
-            reasoning = "We have a damaged ship! "
-            
-            for hr, hc in hits:
-                neighbors = [(hr+1, hc), (hr-1, hc), (hr, hc+1), (hr, hc-1)]
-                valid_neighbors = []
-                for nr, nc in neighbors:
-                    if 0 <= nr < self.rows and 0 <= nc < self.cols and board[nr][nc] == "empty":
-                        valid_neighbors.append((nr, nc))
-                
-                if valid_neighbors:
-                    candidates.extend(valid_neighbors)
+        # Target Mode (Used by Medium and Hard)
+        if hits and difficulty != 'easy':
+            return self._target_mode(board_state, hits)
+        
+        # 2. Hunt Mode (The difference in difficulty)
+        if difficulty == 'easy':
+            return self._random_hunt(board_state)
+        elif difficulty == 'medium':
+            return self._random_hunt(board_state) # Medium hunts randomly but targets smartly
+        else:
+            return self._heatmap_hunt(board_state) # Hard uses math
+
+    def _random_hunt(self, board) -> Tuple[int, int]:
+        """Just pick a random valid spot"""
+        empties = [(r, c) for r in range(10) for c in range(10) if board[r][c] == 0]
+        if not empties: return (0,0)
+        return random.choice(empties)
+
+    def _target_mode(self, board, hits) -> Tuple[int, int]:
+        """Smart targeting for damaged ships"""
+        candidates = []
+        for r, c in hits:
+            neighbors = [(r-1, c), (r+1, c), (r, c-1), (r, c+1)]
+            for nr, nc in neighbors:
+                if 0 <= nr < self.board_size and 0 <= nc < self.board_size:
+                    if board[nr][nc] == 0:
+                        candidates.append((nr, nc))
+                        
+        if len(hits) >= 2:
+            hits.sort()
+            if hits[0][1] == hits[1][1]: # Vertical
+                top_r, col = hits[0]
+                bot_r, _ = hits[-1]
+                priority = []
+                if top_r > 0 and board[top_r-1][col] == 0: priority.append((top_r-1, col))
+                if bot_r < 9 and board[bot_r+1][col] == 0: priority.append((bot_r+1, col))
+                if priority: return random.choice(priority)
+            if hits[0][0] == hits[1][0]: # Horizontal
+                row, left_c = hits[0]
+                _, right_c = hits[-1]
+                priority = []
+                if left_c > 0 and board[row][left_c-1] == 0: priority.append((row, left_c-1))
+                if right_c < 9 and board[row][right_c+1] == 0: priority.append((row, right_c+1))
+                if priority: return random.choice(priority)
+
+        return random.choice(candidates) if candidates else self._random_hunt(board)
+
+    def _heatmap_hunt(self, board) -> Tuple[int, int]:
+        """Probability Density Search (Hard Mode)"""
+        probability_grid = [[0]*10 for _ in range(10)]
+        
+        for ship_len in self.ships:
+            # Horizontal
+            for r in range(10):
+                for c in range(10 - ship_len + 1):
+                    valid = True
+                    for i in range(ship_len):
+                        if board[r][c+i] in [1, 3]: valid = False; break
+                    if valid:
+                        for i in range(ship_len):
+                            if board[r][c+i] == 0: probability_grid[r][c+i] += 1
+            # Vertical
+            for r in range(10 - ship_len + 1):
+                for c in range(10):
+                    valid = True
+                    for i in range(ship_len):
+                        if board[r+i][c] in [1, 3]: valid = False; break
+                    if valid:
+                        for i in range(ship_len):
+                            if board[r+i][c] == 0: probability_grid[r+i][c] += 1
+
+        best_score = -1
+        best_move = None
+        
+        for r in range(10):
+            for c in range(10):
+                if board[r][c] == 0:
+                    score = probability_grid[r][c]
+                    if (r + c) % 2 == 0: score += 5 # Parity
+                    score += random.randint(0, 2) # Noise
                     
-            if candidates:
-                # Pick one that aligns with other hits if possible
-                best = candidates[0] # Simplified for brevity
-                return {
-                    "row": best[0], "col": best[1],
-                    "reason": f"Logic dictates attacking ({best[0]},{best[1]}) to finish the damaged ship."
-                }
-
-        # 2. If no current hits, calculate Probability Density
-        # Try placing every remaining ship in every possible position
-        for ship_len in ships_remaining:
-            # Horizontal checks
-            for r in range(self.rows):
-                for c in range(self.cols - ship_len + 1):
-                    valid = True
-                    for k in range(ship_len):
-                        if board[r][c+k] != "empty":
-                            valid = False; break
-                    if valid:
-                        for k in range(ship_len):
-                            probability_grid[r][c+k] += 1
-            
-            # Vertical checks
-            for r in range(self.rows - ship_len + 1):
-                for c in range(self.cols):
-                    valid = True
-                    for k in range(ship_len):
-                        if board[r+k][c] != "empty":
-                            valid = False; break
-                    if valid:
-                        for k in range(ship_len):
-                            probability_grid[r+k][c] += 1
-
-        # Find max probability
-        for r in range(self.rows):
-            for c in range(self.cols):
-                if probability_grid[r][c] > max_prob and board[r][c] == "empty":
-                    max_prob = probability_grid[r][c]
-                    best_coords = (r, c)
+                    if score > best_score:
+                        best_score = score
+                        best_move = (r, c)
         
-        if best_coords:
-            return {
-                "row": best_coords[0],
-                "col": best_coords[1],
-                "reason": f"Based on probabilistic analysis, square ({best_coords[0]},{best_coords[1]}) has the highest likelihood ({max_prob} configurations) of hiding a ship."
-            }
-        
-        return {"row": 0, "col": 0, "reason": "No logical moves detected."}
-
-    def get_ai_move(self, board):
-        # AI uses the same logic against the player, but we just return coordinates
-        # Simplified: Random move for 'easy', logic for 'hard' (implemented as random here for brevity)
-        while True:
-            r, c = random.randint(0, 9), random.randint(0, 9)
-            if board[r][c] in ["empty", "ship"]: # Logic to assume board state passed in is masked or unmasked? 
-                # Assuming simple backend logic here
-                return {"row": r, "col": c}
+        return best_move or self._random_hunt(board)

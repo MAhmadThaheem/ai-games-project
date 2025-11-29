@@ -49,14 +49,14 @@ export const gameAPI = {
   getConnect4LegalMoves: (gameId) => 
     api.get(`/api/connect4/${gameId}/legal-moves`),
   
-  // Maze Solver (to be implemented)
+  // Maze Solver
   solveMaze: (mazeData) => api.post('/api/maze/solve', mazeData),
   getMazeMove: (state) => api.post('/api/maze/next-move', { state }),
 
-  // Battleship
-  getBattleshipHint: (state) => api.post('/api/battleship/hint', { state }),
+  // Battleship - FIXED: Removed the extra { state } wrapper
+  getBattleshipHint: (state) => api.post('/api/battleship/hint', state),
 
-  // Pacman (New!)
+  // Pacman
   getPacmanGhostMove: (data) => api.post('/api/pacman/ghost-move', data),
 };
 

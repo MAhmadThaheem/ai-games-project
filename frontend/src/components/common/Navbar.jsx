@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Search, Volume2, VolumeX, Info, Gamepad2, User, Grid, X, LogOut, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAudio } from '../../context/AudioContext';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useSound } from '../../hooks/useSound'; // Adjust path if needed based on your structure

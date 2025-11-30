@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Bot, User, Sparkles, Minimize2 } from 'lucide-react';
+import { Send, Bot, User, Sparkles, Minimize2 } from 'lucide-react';
 import axios from 'axios';
 
 const Chatbot = () => {
@@ -29,7 +29,7 @@ const Chatbot = () => {
     setLoading(true);
 
     try {
-      const res = await axios.post('http://localhost:8000/api/chatbot/ask', {
+      const res = await axios.post('https://ai-games-project.onrender.com/api/chatbot/ask', {
         message: userMessage
       });
       

@@ -26,6 +26,7 @@ import Pacman from './components/games/Pacman';
 import AboutUs from './pages/AboutUs';
 
 import './App.css';
+import Chatbot from './components/common/Chatbot';
 
 function App() {
   return (
@@ -70,7 +71,10 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
+
             </Routes>
+            {/* --- CHATBOT --- */}
+            <Chatbot />
           </div>
         </Router>
       </AuthProvider>

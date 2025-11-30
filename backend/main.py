@@ -3,7 +3,7 @@ from app.routes.checkers import router as checkers_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routes import tictactoe, connect4, chess, maze, battleship, pacman, auth, chatbot # Added pacman
+from app.routes import tictactoe, connect4, chess, maze, battleship, pacman, auth, chatbot, checkers # Added pacman
 from app.database import connect_to_mongo, close_mongo_connection
 
 app = FastAPI(
@@ -30,6 +30,7 @@ app.include_router(battleship.router)
 app.include_router(pacman.router) # Added pacman router
 app.include_router(auth.router)
 app.include_router(chatbot.router)
+app.include_router(checkers.router)
 
 @app.on_event("startup")
 async def startup_event():

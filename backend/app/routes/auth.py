@@ -4,8 +4,7 @@ from app.database import get_collection
 from app.models.user_models import UserCreate, UserInDB, UserResponse, Token, TokenData
 from app.utils.security import verify_password, get_password_hash, create_access_token, SECRET_KEY, ALGORITHM
 from jose import JWTError, jwt
-from bson import ObjectId
-from datetime import timedelta
+
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 

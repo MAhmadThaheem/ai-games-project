@@ -1,6 +1,5 @@
 from typing import List, Dict, Any, Optional
 import random
-import math
 from .connect4_logic import Connect4GameLogic
 
 class Connect4AI:

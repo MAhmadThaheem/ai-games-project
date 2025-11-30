@@ -1,6 +1,4 @@
-from typing import List, Optional, Tuple, Dict, Any
-import random
-
+from typing import List, Optional, Dict, Any
 class CheckersGameLogic:
     def __init__(self):
         self.board = self.initialize_board()

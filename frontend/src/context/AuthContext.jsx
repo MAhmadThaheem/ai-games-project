@@ -31,26 +31,26 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (username, password) => {
-    // Form data for OAuth2 format
-    const formData = new FormData();
-    formData.append("username", username);
-    formData.append("password", password);
+  const params = new URLSearchParams();
+  params.append("username", username);
+  params.append("password", password);
 
-    const response = await axios.post(
-      "https://ai-games-project.onrender.com/api/auth/login",
-      formData
-    );
-    const { access_token } = response.data;
+  const response = await axios.post(
+    "https://ai-games-project.onrender.com/api/auth/login",
+    params,
+    { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+  );
 
-    localStorage.setItem("token", access_token);
+  const { access_token } = response.data;
+  localStorage.setItem("token", access_token);
 
-    // Fetch user details immediately after login
-    const userRes = await axios.get("https://ai-games-project.onrender.com/api/auth/me", {
-      headers: { Authorization: `Bearer ${access_token}` },
-    });
-    setUser(userRes.data);
-    return true;
-  };
+  const userRes = await axios.get("https://ai-games-project.onrender.com/api/auth/me", {
+    headers: { Authorization: `Bearer ${access_token}` },
+  });
+  setUser(userRes.data);
+  return true;
+};
+
 
   const register = async (username, password, email) => {
     await axios.post(

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSound } from '../../hooks/useSound.js';
 import { useAudio } from '../../context/AudioContext.jsx';
 import BackButton from '../common/BackButton';
+import { checkersAPI } from '../../utils/api'; // Import the API client
 
 const Checkers = () => {
   const [board, setBoard] = useState([]);
@@ -23,52 +24,46 @@ const Checkers = () => {
   const [playClick] = useSound('click', { volume: 0.4 });
   const [playGameStart] = useSound('game-start', { volume: 0.6 });
 
-  // Initialize board
-  const initializeBoard = () => {
-    const newBoard = Array(8).fill(null).map(() => Array(8).fill(null));
-    
-    // Place red pieces (top)
-    for (let row = 0; row < 3; row++) {
-      for (let col = 0; col < 8; col++) {
-        if ((row + col) % 2 === 1) {
-          newBoard[row][col] = 'r'; // red piece
-        }
+  // Initialize board by calling Backend
+  const startNewGame = async () => {
+    setLoading(true);
+    try {
+      // Pass the current difficulty state to the backend
+      const response = await checkersAPI.newGame(difficulty);
+      
+      // Ensure we have valid data before setting state
+      if (response && response.data) {
+        setGameId(response.data.game_id);
+        setBoard(response.data.board);
+        setCurrentPlayer(response.data.current_player);
+        setSelectedPiece(null);
+        setValidMoves([]);
+        setGameOver(false);
+        setWinner(null);
+        
+        if (isMusicEnabled) playGameStart();
+      } else {
+        console.error("Invalid response from server:", response);
       }
+    } catch (error) {
+      console.error("Failed to start game:", error);
+      alert("Failed to start new game. Please check backend connection.");
+    } finally {
+      setLoading(false);
     }
-    
-    // Place white pieces (bottom)
-    for (let row = 5; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        if ((row + col) % 2 === 1) {
-          newBoard[row][col] = 'w'; // white piece
-        }
-      }
-    }
-    
-    return newBoard;
   };
 
   useEffect(() => {
     startNewGame();
-  }, []);
-
-  const startNewGame = () => {
-    const initialBoard = initializeBoard();
-    setBoard(initialBoard);
-    setCurrentPlayer('red');
-    setSelectedPiece(null);
-    setValidMoves([]);
-    setGameOver(false);
-    setWinner(null);
-    setGameId(`checkers-${Date.now()}`);
-    if (isMusicEnabled) playGameStart();
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount
 
   const getPieceColor = (piece) => {
     if (!piece) return null;
     return piece.toLowerCase() === 'r' ? 'red' : 'white';
   };
 
+  // Local helper to highlight valid moves for UI feedback only
   const getValidMoves = (row, col) => {
     const piece = board[row][col];
     if (!piece) return [];
@@ -156,199 +151,38 @@ const Checkers = () => {
   const makeMove = async (fromRow, fromCol, toRow, toCol) => {
     setLoading(true);
     
-    // Create new board state
-    const newBoard = board.map(row => [...row]);
-    const piece = newBoard[fromRow][fromCol];
-    
-    // Move the piece
-    newBoard[toRow][toCol] = piece;
-    newBoard[fromRow][fromCol] = null;
-    
-    // Handle captures
-    const move = validMoves.find(m => m.row === toRow && m.col === toCol);
-    if (move && move.capture) {
-      newBoard[move.capturedRow][move.capturedCol] = null;
-    } 
-    
-    // Play sound
-    if (isMusicEnabled) playMove();
-
-    // Check for promotion to king
-    let wasPromoted = false;
-    if ((getPieceColor(piece) === 'red' && toRow === 7) || 
-        (getPieceColor(piece) === 'white' && toRow === 0)) {
-      newBoard[toRow][toCol] = piece.toUpperCase(); // Make king
-      wasPromoted = true;
-      if (isMusicEnabled) playKing();
-    }
-    
-    setBoard(newBoard);
+    // Optimistic UI Update
     setSelectedPiece(null);
     setValidMoves([]);
-    
-    // Switch to AI turn
-    setCurrentPlayer('white');
-    
-    // Simulate AI thinking
-    setTimeout(() => {
-      makeAIMove(newBoard, wasPromoted);
-    }, 1000);
-  };
 
-  const makeAIMove = (currentBoard, wasHumanPromoted) => {
-    const aiMoves = [];
-    
-    // Find all AI pieces and their moves
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = currentBoard[row][col];
-        if (piece && getPieceColor(piece) === 'white') {
-          const moves = getValidMovesForPiece(currentBoard, row, col);
-          moves.forEach(move => {
-            aiMoves.push({
-              fromRow: row,
-              fromCol: col,
-              toRow: move.row,
-              toCol: move.col,
-              capture: move.capture,
-              score: evaluateMove(currentBoard, row, col, move.row, move.col, move.capture)
-            });
-          });
+    try {
+      // Call Backend
+      const response = await checkersAPI.makeMove(gameId, fromRow, fromCol, toRow, toCol);
+      const data = response.data;
+
+      // Update Board with Backend State
+      setBoard(data.board);
+      setCurrentPlayer(data.current_player);
+      setGameOver(data.game_over);
+      setWinner(data.winner);
+
+      // Play Sound Effects
+      if (isMusicEnabled) playMove();
+      
+      // Check for Game Over sounds
+      if (data.game_over) {
+        if (data.winner === 'red') {
+          if (isMusicEnabled) playWin();
+        } else {
+          if (isMusicEnabled) playLose();
         }
       }
-    }
-    
-    if (aiMoves.length === 0) {
-      // AI has no moves - game over
-      setGameOver(true);
-      setWinner('red');
+
+    } catch (error) {
+      console.error("Error making move:", error);
+      alert("Invalid move or server error!");
+    } finally {
       setLoading(false);
-      if (isMusicEnabled) playWin();
-      return;
-    }
-    
-    // Choose best move based on difficulty
-    let bestMove;
-    if (difficulty === 'easy') {
-      // Random move
-      bestMove = aiMoves[Math.floor(Math.random() * aiMoves.length)];
-    } else if (difficulty === 'medium') {
-      // Prefer captures
-      const captures = aiMoves.filter(move => move.capture);
-      bestMove = captures.length > 0 ? captures[0] : aiMoves[0];
-    } else {
-      // Hard - choose highest score
-      bestMove = aiMoves.reduce((best, current) => 
-        current.score > best.score ? current : best
-      );
-    }
-    
-    // Execute AI move
-    const newBoard = currentBoard.map(row => [...row]);
-    const piece = newBoard[bestMove.fromRow][bestMove.fromCol];
-    
-    newBoard[bestMove.toRow][bestMove.toCol] = piece;
-    newBoard[bestMove.fromRow][bestMove.fromCol] = null;
-    
-    if (isMusicEnabled) playMove();
-
-    let wasAIPromoted = false;
-    if (bestMove.capture) {
-      // For captures, we need to determine which piece was captured
-      const rowDir = bestMove.toRow > bestMove.fromRow ? 1 : -1;
-      const colDir = bestMove.toCol > bestMove.fromCol ? 1 : -1;
-      const captureRow = bestMove.fromRow + rowDir;
-      const captureCol = bestMove.fromCol + colDir;
-      newBoard[captureRow][captureCol] = null;
-    }
-    
-    // Check for AI promotion
-    if (getPieceColor(piece) === 'white' && bestMove.toRow === 0) {
-      newBoard[bestMove.toRow][bestMove.toCol] = piece.toUpperCase();
-      wasAIPromoted = true;
-      if (isMusicEnabled) playKing();
-    }
-    
-    setBoard(newBoard);
-    setCurrentPlayer('red');
-    setLoading(false);
-    
-    // Check if game is over (human has no moves)
-    checkGameOver(newBoard);
-  };
-
-  const getValidMovesForPiece = (boardState, row, col) => {
-    const piece = boardState[row][col];
-    if (!piece) return [];
-
-    const color = getPieceColor(piece);
-    const isKing = piece === piece.toUpperCase();
-    const moves = [];
-
-    const directions = [];
-    if (color === 'red' || isKing) directions.push(1);
-    if (color === 'white' || isKing) directions.push(-1);
-
-    directions.forEach(rowDir => {
-      [-1, 1].forEach(colDir => {
-        const newRow = row + rowDir;
-        const newCol = col + colDir;
-        
-        if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
-          if (!boardState[newRow][newCol]) {
-            moves.push({ 
-              row: newRow, 
-              col: newCol, 
-              capture: false 
-            });
-          }
-        }
-      });
-    });
-
-    return moves;
-  };
-
-  const evaluateMove = (boardState, fromRow, fromCol, toRow, toCol, isCapture) => {
-    let score = 0;
-    
-    if (isCapture) score += 3;
-    
-    // Encourage advancement
-    if (getPieceColor(boardState[fromRow][fromCol]) === 'white') {
-      score += (7 - toRow) * 0.1; // White wants to move up
-    }
-    
-    // Center control
-    if (toCol >= 2 && toCol <= 5) score += 0.1;
-    
-    // Random factor for variety
-    score += Math.random() * 0.2;
-    
-    return score;
-  };
-
-  const checkGameOver = (boardState) => {
-    let redHasMoves = false;
-    
-    for (let row = 0; row < 8; row++) {
-      for (let col = 0; col < 8; col++) {
-        const piece = boardState[row][col];
-        if (piece && getPieceColor(piece) === 'red') {
-          const moves = getValidMovesForPiece(boardState, row, col);
-          if (moves.length > 0) {
-            redHasMoves = true;
-            break;
-          }
-        }
-      }
-      if (redHasMoves) break;
-    }
-    
-    if (!redHasMoves) {
-      setGameOver(true);
-      setWinner('white');
-      if (isMusicEnabled) playLose();
     }
   };
 
@@ -403,7 +237,7 @@ const Checkers = () => {
               <select 
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value)}
-                className="p-2 border border-white/30 rounded-lg bg-purple-800 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="p-2 border border-white/30 rounded-lg bg-purple-800 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 cursor-pointer"
                 disabled={loading}
               >
                 <option value="easy">Easy</option>
@@ -446,7 +280,8 @@ const Checkers = () => {
           {/* Checkers Board */}
           <div className="flex justify-center">
             <div className="bg-green-800 p-4 rounded-xl shadow-2xl border-4 border-amber-800">
-              {board.map((row, rowIndex) => (
+              {/* Ensure board exists before mapping */}
+              {board && board.length > 0 && board.map((row, rowIndex) => (
                 <div key={rowIndex} className="flex">
                   {row.map((piece, colIndex) => {
                     const isBlack = (rowIndex + colIndex) % 2 === 1;

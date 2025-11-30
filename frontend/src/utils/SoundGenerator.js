@@ -28,7 +28,7 @@ export const playSynthSound = (type, volume = 0.5) => {
       hoverOsc.type = 'sine';
       hoverOsc.frequency.setValueAtTime(300, now);
       hoverOsc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
-      hoverGain.gain.setValueAtTime(volume * 0.1, now); // Very quiet for hover
+      hoverGain.gain.setValueAtTime(volume * 0.1, now); 
       hoverGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
       hoverOsc.start(now);
       hoverOsc.stop(now + 0.05);
@@ -75,6 +75,21 @@ export const playSynthSound = (type, volume = 0.5) => {
       backOsc.stop(now + 0.2);
       break;
 
+    case 'invalid':
+      // Low pitch "error" buzz
+      const invOsc = audioCtx.createOscillator();
+      const invGain = audioCtx.createGain();
+      invOsc.connect(invGain);
+      invGain.connect(audioCtx.destination);
+      invOsc.type = 'sawtooth';
+      invOsc.frequency.setValueAtTime(150, now);
+      invOsc.frequency.linearRampToValueAtTime(100, now + 0.15);
+      invGain.gain.setValueAtTime(volume * 0.3, now);
+      invGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      invOsc.start(now);
+      invOsc.stop(now + 0.15);
+      break;
+
     case 'game-start':
       const notes = [523.25, 659.25, 783.99, 1046.50];
       notes.forEach((freq, i) => {
@@ -93,7 +108,7 @@ export const playSynthSound = (type, volume = 0.5) => {
       });
       break;
 
-    // --- CHESS SOUNDS (Wooden, Thocky) ---
+    // --- CHESS SOUNDS ---
     case 'chess-move':
       const chessOsc = audioCtx.createOscillator();
       const chessGain = audioCtx.createGain();
@@ -136,7 +151,7 @@ export const playSynthSound = (type, volume = 0.5) => {
       checkOsc.stop(now + 0.3);
       break;
 
-    // --- CHECKERS SOUNDS (Lighter, Sliding) ---
+    // --- CHECKERS SOUNDS ---
     case 'checkers-move':
       const noise = audioCtx.createBufferSource();
       noise.buffer = createNoiseBuffer();
@@ -154,6 +169,21 @@ export const playSynthSound = (type, volume = 0.5) => {
       noise.stop(now + 0.15);
       break;
 
+    case 'checkers-capture':
+      // Punchier sound for capturing
+      const capOsc = audioCtx.createOscillator();
+      const capGain = audioCtx.createGain();
+      capOsc.connect(capGain);
+      capGain.connect(audioCtx.destination);
+      capOsc.type = 'square';
+      capOsc.frequency.setValueAtTime(200, now);
+      capOsc.frequency.exponentialRampToValueAtTime(50, now + 0.1);
+      capGain.gain.setValueAtTime(volume * 0.4, now);
+      capGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+      capOsc.start(now);
+      capOsc.stop(now + 0.1);
+      break;
+
     case 'checkers-king':
       const kingOsc = audioCtx.createOscillator();
       const kingGain = audioCtx.createGain();
@@ -168,7 +198,7 @@ export const playSynthSound = (type, volume = 0.5) => {
       kingOsc.stop(now + 0.4);
       break;
 
-    // --- CONNECT 4 SOUNDS (Plastic, Dropping) ---
+    // --- CONNECT 4 SOUNDS ---
     case 'connect4-drop':
       const dropOsc = audioCtx.createOscillator();
       const dropGain = audioCtx.createGain();
@@ -195,7 +225,7 @@ export const playSynthSound = (type, volume = 0.5) => {
       }, 150);
       break;
 
-    // --- TIC TAC TOE SOUNDS (Sketchy, Pencil) ---
+    // --- TIC TAC TOE SOUNDS ---
     case 'ttt-mark':
       const scratch = audioCtx.createBufferSource();
       scratch.buffer = createNoiseBuffer();
@@ -212,6 +242,7 @@ export const playSynthSound = (type, volume = 0.5) => {
       scratch.stop(now + 0.1);
       break;
 
+    // --- GENERIC WIN/LOSE ---
     case 'win':
       const winNotes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; 
       winNotes.forEach((freq, i) => {
@@ -249,6 +280,16 @@ export const playSynthSound = (type, volume = 0.5) => {
       break;
 
     default:
+      // Fallback click
+      const defOsc = audioCtx.createOscillator();
+      const defGain = audioCtx.createGain();
+      defOsc.connect(defGain);
+      defGain.connect(audioCtx.destination);
+      defOsc.frequency.setValueAtTime(400, now);
+      defGain.gain.setValueAtTime(volume * 0.1, now);
+      defGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      defOsc.start(now);
+      defOsc.stop(now + 0.05);
       break;
   }
 };

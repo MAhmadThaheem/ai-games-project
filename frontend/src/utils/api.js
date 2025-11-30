@@ -53,34 +53,36 @@ export const gameAPI = {
   solveMaze: (mazeData) => api.post('/api/maze/solve', mazeData),
   getMazeMove: (state) => api.post('/api/maze/next-move', { state }),
 
-  // Battleship - FIXED: Removed the extra { state } wrapper
+  // Battleship
   getBattleshipHint: (state) => api.post('/api/battleship/hint', state),
 
   // Pacman
   getPacmanGhostMove: (data) => api.post('/api/pacman/ghost-move', data),
 };
 
-//checkers
+// Checkers API
 export const checkersAPI = {
-  newGame: async (difficulty = 'medium') => {
-    const response = await fetch(`/api/checkers/new?difficulty=${difficulty}`, {
-      method: 'POST'
+  newGame: (difficulty = 'medium') => {
+    // Uses axios 'api' instance to handle BaseURL
+    return api.post('/api/checkers/new', null, { 
+      params: { difficulty } 
     });
-    return response.json();
   },
 
-  makeMove: async (gameId, fromRow, fromCol, toRow, toCol) => {
-    const response = await fetch(`/api/checkers/${gameId}/move`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fromRow, fromCol, toRow, toCol })
+  makeMove: (gameId, fromRow, fromCol, toRow, toCol) => {
+    // Sends moves as Query Parameters to match FastAPI signature
+    return api.post(`/api/checkers/${gameId}/move`, null, {
+      params: { 
+        from_row: fromRow, 
+        from_col: fromCol, 
+        to_row: toRow, 
+        to_col: toCol 
+      }
     });
-    return response.json();
   },
 
-  getGameState: async (gameId) => {
-    const response = await fetch(`/api/checkers/${gameId}`);
-    return response.json();
+  getGameState: (gameId) => {
+    return api.get(`/api/checkers/${gameId}`);
   }
 };
 

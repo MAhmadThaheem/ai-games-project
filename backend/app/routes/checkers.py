@@ -9,7 +9,7 @@ router = APIRouter()
 # Store active games (in production, use database)
 active_games = {}
 
-@router.post("/checkers/new")
+@router.post("/new")
 async def new_checkers_game(difficulty: str = "medium"):
     """Start a new checkers game"""
     game_id = str(len(active_games) + 1)
@@ -29,7 +29,7 @@ async def new_checkers_game(difficulty: str = "medium"):
         "message": "New checkers game started"
     }
 
-@router.post("/checkers/{game_id}/move")
+@router.post("/{game_id}/move")
 async def make_checkers_move(game_id: str, from_row: int, from_col: int, to_row: int, to_col: int):
     """Make a move in checkers"""
     if game_id not in active_games:
@@ -59,6 +59,11 @@ async def make_checkers_move(game_id: str, from_row: int, from_col: int, to_row:
     if not game_logic.is_game_over() and game_logic.current_player == 'white':
         ai_move = await make_ai_move(game_id)
         response['ai_move'] = ai_move
+        # Update response with state AFTER AI move
+        response['board'] = game_logic.board
+        response['current_player'] = game_logic.current_player
+        response['game_over'] = game_logic.is_game_over()
+        response['winner'] = game_logic.get_winner()
     
     return response
 
@@ -77,20 +82,17 @@ async def make_ai_move(game_id: str):
             ai_move['from_row'], ai_move['from_col'],
             ai_move['to_row'], ai_move['to_col']
         )
-    
-    return {
-        "from_row": ai_move['from_row'],
-        "from_col": ai_move['from_col'],
-        "to_row": ai_move['to_row'],
-        "to_col": ai_move['to_col'],
-        "capture": ai_move.get('capture', False),
-        "board": game_logic.board,
-        "current_player": game_logic.current_player,
-        "game_over": game_logic.is_game_over(),
-        "winner": game_logic.get_winner()
-    }
+        
+        return {
+            "from_row": ai_move['from_row'],
+            "from_col": ai_move['from_col'],
+            "to_row": ai_move['to_row'],
+            "to_col": ai_move['to_col'],
+            "capture": ai_move.get('capture', False)
+        }
+    return None
 
-@router.get("/checkers/{game_id}")
+@router.get("/{game_id}")
 async def get_checkers_game_state(game_id: str):
     """Get current game state"""
     if game_id not in active_games:
@@ -105,7 +107,7 @@ async def get_checkers_game_state(game_id: str):
         "winner": game_logic.get_winner()
     }
 
-@router.delete("/checkers/{game_id}")
+@router.delete("/{game_id}")
 async def delete_checkers_game(game_id: str):
     """Delete a checkers game"""
     if game_id in active_games:

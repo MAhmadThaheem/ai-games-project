@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageSquare, X, Send, Bot, User, Sparkles, Minimize2 } from 'lucide-react';
 import axios from 'axios';
-import { useAuth } from '../context/AuthContext'; // 1. Import Auth Context
+import { useAuth } from '../../context/AuthContext'; // 1. Import Auth Context
 
 const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);

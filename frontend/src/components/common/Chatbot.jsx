@@ -1,15 +1,29 @@
-import { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Sparkles, Minimize2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { MessageSquare, X, Send, Bot, User, Sparkles, Minimize2 } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext'; // 1. Import Auth Context
 
 const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { role: 'bot', text: "Hi! I'm Nexus, the AI Assistant. Ask me about our algorithms, the team, or how to play!" }
-  ]);
+  
+  // Initial Welcome Message
+  const INITIAL_MESSAGE = { 
+    role: 'bot', 
+    text: "Hi! I'm Nexus, the AI Assistant. Ask me about our algorithms, the team, or how to play!" 
+  };
+
+  const [messages, setMessages] = useState([INITIAL_MESSAGE]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // 2. Get User State
+  const { user } = useAuth();
+
+  // 3. Reset Chat when User logs in or out
+  useEffect(() => {
+    setMessages([INITIAL_MESSAGE]);
+  }, [user]); // Logic: If 'user' changes (null -> object OR object -> null), reset chat.
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -29,7 +43,7 @@ const Chatbot = () => {
     setLoading(true);
 
     try {
-      const res = await axios.post('https://ai-games-project.onrender.com/api/chatbot/ask', {
+      const res = await axios.post('http://localhost:8000/api/chatbot/ask', {
         message: userMessage
       });
       

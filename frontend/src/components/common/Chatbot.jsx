@@ -43,7 +43,7 @@ const Chatbot = () => {
     setLoading(true);
 
     try {
-      const res = await axios.post('http://localhost:8000/api/chatbot/ask', {
+      const res = await axios.post('https://ai-games-project.onrender.com/api/chatbot/ask', {
         message: userMessage
       });
       

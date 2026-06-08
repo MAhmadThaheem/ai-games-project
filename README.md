@@ -1,6 +1,5 @@
 <div align="center">
 
-<img src="https://readme-typing-svg.demolab.com?font=Orbitron&size=40&duration=3000&pause=1000&color=7C3AED&center=true&vCenter=true&width=600&lines=🎮+AI+Games+Hub;Play.+Learn.+Evolve." alt="Typing SVG" />
 
 <br/>
 
@@ -18,7 +17,7 @@
 
 <br/>
 
-[🚀 Live Demo](https://ai-games-project.onrender.com) &nbsp;|&nbsp; [📖 API Docs](https://ai-games-project.onrender.com/docs) &nbsp;|&nbsp; [🎮 Play Now](#-games-collection)
+[🚀 Live Demo](https://ai-games-project.vercel.app/)
 
 </div>
 

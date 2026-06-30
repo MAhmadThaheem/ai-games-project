@@ -27,6 +27,7 @@ import AboutUs from './pages/AboutUs';
 
 import './App.css';
 import Chatbot from './components/common/Chatbot';
+import BackendStatus from './components/common/BackendStatus';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
       <AuthProvider>
         <Router>
           <div className="App bg-gray-900 min-h-screen text-white">
+            <BackendStatus />
             <Routes>
               {/* --- PUBLIC ROUTES (Anyone can see these) --- */}
               <Route path="/" element={<MainMenu />} />

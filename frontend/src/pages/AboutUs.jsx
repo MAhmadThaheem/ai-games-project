@@ -2,12 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Users, MapPin, Target, Sparkles, Code, GraduationCap, Github, Linkedin, ArrowLeft, Mail, Globe, Heart, Zap, Shield, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-// Team Images
-import imgAhmad from '../assets/creators/muhammadAhmad.png';
-import imgAli from '../assets/creators/aliNaqi.png';
-import imgSaqib from '../assets/creators/saqibJaved.png';
-import imgAamir from '../assets/creators/muhammadAamir.png';
-
 const AboutUs = () => {
   const navigate = useNavigate();
   const [activeUsers, setActiveUsers] = useState(1240);
@@ -20,45 +14,6 @@ const AboutUs = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const teamMembers = [
-    { 
-      name: "Muhammad Aamir", 
-      role: "UI/UX Designer", 
-      image: imgAamir,
-      icon: <Users size={16} className="text-green-400" />,
-      bio: "Designing intuitive layouts and visual aesthetics.",
-      color: "from-green-500 to-emerald-500",
-      github: "https://github.com/Mian-Aamir",
-    },
-    { 
-      name: "Muhammad Ahmad", 
-      role: "AI & Backend Lead", 
-      image: imgAhmad,
-      icon: <Code size={16} className="text-blue-400" />,
-      bio: "Architecting intelligent algorithms and robust backend systems.",
-      color: "from-purple-500 to-pink-500",
-      github: "https://github.com/MAhmadThaheem",
-    },
-    { 
-      name: "Ali Naqi", 
-      role: "Frontend Architect", 
-      image: imgAli,
-      icon: <Sparkles size={16} className="text-purple-400" />,
-      bio: "Crafting immersive user experiences and responsive interfaces.",
-      color: "from-blue-500 to-cyan-500",
-      github: "https://github.com/Ali-x-Naqi",
-    },
-    { 
-      name: "Saqib Javed", 
-      role: "Game Logic Developer", 
-      image: imgSaqib,
-      icon: <Target size={16} className="text-red-400" />,
-      bio: "Implementing complex game rules and mechanics.",
-      color: "from-red-500 to-orange-500",
-      github: "https://github.com/f233069-SaqibJaved",
-    },
-    
-  ];
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white relative overflow-hidden font-sans flex flex-col">
@@ -84,14 +39,11 @@ const AboutUs = () => {
         
         {/* Header Section */}
         <div className="text-center mb-24 animate-fade-in-up">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-bold text-blue-300 tracking-wider uppercase mb-6 shadow-lg shadow-blue-500/10">
-            <GraduationCap size={14} /> FAST-NU Chiniot-Faisalabad
-          </div>
           <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-8 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 drop-shadow-2xl tracking-tight leading-tight">
-            MEET THE CREATORS
+            ABOUT US
           </h1>
           <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto leading-relaxed font-light">
-            We are a team of passionate Software Engineers from <span className="text-white font-semibold">FAST CFD Campus</span>, dedicated to pushing the boundaries of AI in gaming.
+            An AI-powered gaming platform dedicated to pushing the boundaries of AI in gaming.
           </p>
         </div>
 
@@ -147,59 +99,6 @@ const AboutUs = () => {
           </div>
         </div>
 
-        {/* Team Grid */}
-        <h2 className="text-4xl font-bold text-center mb-16 flex items-center justify-center gap-4">
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">The Squad</span>
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-32">
-          {teamMembers.map((member, index) => (
-            <div 
-              key={index}
-              className="group relative bg-gray-800/40 backdrop-blur-md border border-white/10 p-6 rounded-[2rem] text-center transition-all duration-500 hover:-translate-y-4 hover:shadow-2xl hover:shadow-purple-500/10 overflow-hidden"
-            >
-              {/* Hover Gradient Background */}
-              <div className={`absolute inset-0 bg-gradient-to-br ${member.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500`}></div>
-              
-              {/* Image Container */}
-              <div className="relative w-40 h-40 mx-auto mb-8">
-                <div className={`absolute inset-0 bg-gradient-to-br ${member.color} rounded-full blur-2xl opacity-0 group-hover:opacity-30 transition-opacity duration-500 scale-125`}></div>
-                <div className="relative w-full h-full rounded-full p-1.5 bg-gradient-to-br from-gray-700 to-gray-800 group-hover:from-white/20 group-hover:to-white/5 transition-all duration-500">
-                  <img 
-                    src={member.image} 
-                    alt={member.name}
-                    className="w-full h-full rounded-full object-cover border-4 border-gray-900 shadow-2xl transform group-hover:scale-105 transition-transform duration-500"
-                    onError={(e) => { e.target.src = 'https://via.placeholder.com/150'; }} 
-                  />
-                </div>
-                {/* Floating Icon Badge */}
-                <div className="absolute -bottom-2 -right-2 bg-gray-900 border-2 border-gray-700 p-2 rounded-full shadow-lg transform group-hover:scale-110 transition-transform duration-300">
-                  {member.icon}
-                </div>
-              </div>
-
-              {/* Text Content */}
-              <h3 className="text-2xl font-bold text-white mb-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-gray-300 transition-all">
-                {member.name}
-              </h3>
-              
-              <div className="inline-block px-4 py-1.5 rounded-full bg-white/5 border border-white/5 text-sm font-medium text-blue-200 mb-4">
-                {member.role}
-              </div>
-              
-              <p className="text-gray-400 text-sm mb-8 leading-relaxed px-2">
-                {member.bio}
-              </p>
-
-              {/* Social Links */}
-              <div className="flex justify-center gap-3 opacity-60 group-hover:opacity-100 transition-opacity duration-300">
-                <a href= {member.github} className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 hover:text-white transition-all transform hover:scale-110 hover:-translate-y-1"><Github size={18} /></a>
-                <a href="#" className="p-2.5 rounded-xl bg-white/5 hover:bg-blue-600/20 hover:text-blue-400 transition-all transform hover:scale-110 hover:-translate-y-1"><Linkedin size={18} /></a>
-                <a href="#" className="p-2.5 rounded-xl bg-white/5 hover:bg-purple-600/20 hover:text-purple-400 transition-all transform hover:scale-110 hover:-translate-y-1"><Mail size={18} /></a>
-              </div>
-            </div>
-          ))}
-        </div>
 
         {/* Location Section */}
         <div className="grid lg:grid-cols-2 gap-12 items-center mb-20 bg-gray-800/30 backdrop-blur-sm rounded-[2.5rem] p-10 border border-white/5 hover:border-white/10 transition-colors duration-500 shadow-2xl">

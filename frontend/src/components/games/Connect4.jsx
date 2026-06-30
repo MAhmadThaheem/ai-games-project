@@ -52,6 +52,7 @@ const Connect4 = () => {
     setMessage('AI is thinking...');
 
     // 1. Optimistic Update: Calculate where piece falls locally
+    const previousBoard = board;
     const newBoard = board.map(row => [...row]);
     let droppedRow = -1;
     // Find the first empty cell from bottom up
@@ -99,7 +100,8 @@ const Connect4 = () => {
       }, 1000);
       
     } catch (error) {
-      setMessage('Invalid move! Please try a different column.');
+      setBoard(previousBoard);
+      setMessage('⚠️ Server error — please try again.');
       setLoading(false);
     }
   };
@@ -240,13 +242,22 @@ const Connect4 = () => {
                 </span>
               )}
             </div>
-            {message && !loading && status !== 'in_progress' && (
-              <p className="text-white/70">{message}</p>
+            {message && !loading && (
+              <p className={`text-sm mt-1 ${message.startsWith('⚠️') ? 'text-red-400' : 'text-white/70'}`}>{message}</p>
             )}
           </div>
 
           {/* Connect 4 Board */}
           <div className="flex justify-center">
+            {board.length === 0 && !loading ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+                <p className="text-red-400 text-lg font-semibold">⚠️ Failed to load game from server.</p>
+                <p className="text-white/60 text-sm">The server may still be waking up. Please wait and retry.</p>
+                <button onClick={startNewGame} className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg transition-all">
+                  Retry
+                </button>
+              </div>
+            ) : (
             <div className="bg-blue-600 rounded-xl p-4 border-4 border-blue-700 shadow-2xl">
               
               {/* Column Selectors (Hover Arrows/Buttons) */}
@@ -289,6 +300,7 @@ const Connect4 = () => {
                 ))}
               </div>
             </div>
+            )}
           </div>
 
            {/* Game Instructions & Stats */}

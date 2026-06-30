@@ -48,7 +48,8 @@ const TicTacToe = () => {
     setLoading(true);
     setMessage('AI is thinking...');
 
-    // 1. Optimistic Update
+    // 1. Optimistic Update — save previous board so we can revert on error
+    const previousBoard = board;
     const newBoard = board.map(r => [...r]);
     newBoard[row][col] = 'X';
     setBoard(newBoard);
@@ -68,18 +69,15 @@ const TicTacToe = () => {
           setBoard(response.data.board);
           setCurrentPlayer(response.data.current_player);
           setStatus(response.data.status);
-          
+
           if (isMusicEnabled) {
-            // Play sound for AI move (if not game over immediately)
             if (response.data.status === 'in_progress' && response.data.current_player === 'X') {
                 playMark();
             }
-
             if (response.data.status === 'x_won') playWin();
             if (response.data.status === 'o_won') playLose();
           }
 
-          // Update message based on game state
           if (response.data.status === 'x_won') {
             setMessage('🎉 You won! Congratulations!');
           } else if (response.data.status === 'o_won') {
@@ -89,11 +87,13 @@ const TicTacToe = () => {
           } else {
             setMessage('Your turn!');
           }
-          
+
           setLoading(false);
-      }, 800); // Slightly shorter delay for TTT as it's a fast game
+      }, 800);
     } catch (error) {
-      setMessage('Error making move. Please try again.');
+      // Revert optimistic update so X's don't accumulate on failure
+      setBoard(previousBoard);
+      setMessage('⚠️ Server error — please try again.');
       setLoading(false);
     }
   };
@@ -174,8 +174,8 @@ const TicTacToe = () => {
                 </span>
               )}
             </div>
-            {message && !loading && status !== 'in_progress' && (
-              <p className="text-white/70">{message}</p>
+            {message && !loading && (
+              <p className={`text-sm mt-1 ${message.startsWith('⚠️') ? 'text-red-400' : 'text-white/70'}`}>{message}</p>
             )}
           </div>
 

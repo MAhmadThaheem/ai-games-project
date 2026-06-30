@@ -279,8 +279,16 @@ const Checkers = () => {
 
           {/* Checkers Board */}
           <div className="flex justify-center">
+            {(!board || board.length === 0) && !loading ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+                <p className="text-red-400 text-lg font-semibold">⚠️ Failed to load game from server.</p>
+                <p className="text-white/60 text-sm">The server may still be waking up. Please wait a moment and retry.</p>
+                <button onClick={startNewGame} className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg transition-all">
+                  Retry
+                </button>
+              </div>
+            ) : (
             <div className="bg-green-800 p-4 rounded-xl shadow-2xl border-4 border-amber-800">
-              {/* Ensure board exists before mapping */}
               {board && board.length > 0 && board.map((row, rowIndex) => (
                 <div key={rowIndex} className="flex">
                   {row.map((piece, colIndex) => {
@@ -311,6 +319,7 @@ const Checkers = () => {
                 </div>
               ))}
             </div>
+            )}
           </div>
 
           {/* Game Instructions */}

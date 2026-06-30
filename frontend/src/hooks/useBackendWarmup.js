@@ -11,10 +11,10 @@ export const useBackendWarmup = () => {
     let cancelled = false;
 
     const ping = async () => {
-      // Show warming banner only if takes more than 2s
+      // Show warming banner only if takes more than 5s
       timer = setTimeout(() => {
         if (!cancelled) setStatus("warming");
-      }, 2000);
+      }, 5000);
 
       try {
         await axios.get(`${API_BASE_URL}/health`, { timeout: 60000 });

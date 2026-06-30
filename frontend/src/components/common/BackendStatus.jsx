@@ -12,14 +12,6 @@ const BackendStatus = () => {
     );
   }
 
-  if (status === "error") {
-    return (
-      <div className="fixed top-0 left-0 right-0 z-[100] bg-red-600/90 backdrop-blur-sm text-white text-sm font-semibold text-center py-2 px-4">
-        Could not reach the game server. Please refresh the page or try again later.
-      </div>
-    );
-  }
-
   return null;
 };
 

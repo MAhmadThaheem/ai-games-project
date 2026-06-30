@@ -144,17 +144,28 @@ const Navbar = () => {
 
               {/* User Profile / Logout */}
               <div className="flex items-center gap-3 pl-3 border-l border-white/10">
-                <span className="text-sm font-bold text-cyan-400 hidden lg:block">
+                <span className={`text-sm font-bold hidden lg:block ${user.isGuest ? 'text-gray-400' : 'text-cyan-400'}`}>
                   {user.username}
+                  {user.isGuest && <span className="ml-1 text-xs text-gray-500">(Guest)</span>}
                 </span>
-                <button 
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-red-600/80 text-white font-bold rounded-lg text-sm transition-all shadow-lg hover:shadow-red-500/20 group"
-                  title="Logout"
-                >
-                  <LogOut size={16} />
-                  <span className="hidden sm:inline">Logout</span>
-                </button>
+                {user.isGuest ? (
+                  <button
+                    onClick={() => navigate('/login')}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-lg text-sm transition-all shadow-lg"
+                  >
+                    <User size={16} />
+                    <span className="hidden sm:inline">Login</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-700 hover:bg-red-600/80 text-white font-bold rounded-lg text-sm transition-all shadow-lg hover:shadow-red-500/20 group"
+                    title="Logout"
+                  >
+                    <LogOut size={16} />
+                    <span className="hidden sm:inline">Logout</span>
+                  </button>
+                )}
               </div>
             </div>
           ) : (

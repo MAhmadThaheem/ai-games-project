@@ -65,13 +65,17 @@ export const AuthProvider = ({ children }) => {
     return login(username, password);
   };
 
+  const loginAsGuest = () => {
+    setUser({ username: "Guest", isGuest: true });
+  };
+
   const logout = () => {
     localStorage.removeItem("token");
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loginAsGuest, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );

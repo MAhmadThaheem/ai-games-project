@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, User } from 'lucide-react';
+import { Lock, User, UserCheck } from 'lucide-react';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { login, loginAsGuest } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -62,6 +62,24 @@ const Login = () => {
             Login
           </button>
         </form>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-700" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="bg-gray-800 px-3 text-gray-500">or</span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => { loginAsGuest(); navigate('/featured-games'); }}
+          className="w-full flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 rounded-xl transition-all border border-gray-600"
+        >
+          <UserCheck size={20} />
+          Play as Guest
+        </button>
 
         <p className="text-gray-400 text-center mt-6 text-sm">
           Don't have an account? <Link to="/register" className="text-cyan-400 hover:underline">Sign up</Link>
